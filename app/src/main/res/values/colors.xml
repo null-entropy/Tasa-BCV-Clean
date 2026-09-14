@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Splash / ventana de arranque (modo claro) — Grafito claro -->
+    <color name="splash_background">#EFF0F3</color>
+
+    <!-- Widget — modo claro (Grafito monocromo) -->
+    <color name="widget_surface_top">#FCFDFE</color>
+    <color name="widget_surface_bottom">#F1F2F5</color>
+    <color name="widget_on_surface">#17181B</color>
+    <color name="widget_accent">#1B1C20</color>
+    <color name="widget_muted">#6E7278</color>
+    <color name="widget_stroke">#D9DBE1</color>
+    <color name="widget_chip_top">#F0F1F4</color>
+    <color name="widget_chip_bottom">#E5E6EA</color>
+    <color name="widget_chip_stroke">#D2D4DA</color>
+</resources>

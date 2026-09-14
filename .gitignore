@@ -1,0 +1,23 @@
+# Gradle / build
+.gradle/
+build/
+app/build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Entorno local de la máquina (no compartir)
+local.properties
+
+# Firma: NUNCA subir a un repositorio (ver KEYSTORE_INFO.txt)
+keystore/
+keystore.properties
+
+# APKs entregados (se regeneran con copyReleaseToDownloads)
+*.apk
+
+# Otros
+*.log
+.DS_Store

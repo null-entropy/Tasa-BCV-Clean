@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tasa BCV - Cleam</string>
+    <string name="screen_tasas_updated">Actualizado: %1$s</string>
+    <string name="screen_calculadora_title">Calculadora</string>
+    <string name="nav_tab_tasas">Tasas</string>
+    <string name="nav_tab_calculadora">Calculadora</string>
+    <string name="currency_usd_title">Dólar (USD)</string>
+    <string name="currency_eur_title">Euro (EUR)</string>
+    <string name="widget_description">Tasa oficial BCV (USD/EUR). Toca la moneda para alternar.</string>
+    <string name="widget_toggle_description">Toca para cambiar la moneda</string>
+    <string name="widget_currency_default">USD</string>
+    <string name="widget_value_placeholder">—</string>
+    <string name="widget_no_data">Sin datos</string>
+</resources>

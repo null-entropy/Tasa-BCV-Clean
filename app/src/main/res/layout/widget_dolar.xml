@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <LinearLayout
+        android:id="@+id/widget_currency_chip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/widget_currency_chip"
+        android:paddingLeft="14dp"
+        android:paddingRight="14dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_currency_default"
+            android:textColor="@color/widget_accent"
+            android:textSize="14sp"
+            android:fontFamily="@font/poppins_semibold"
+            android:includeFontPadding="false" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_value"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="3"
+        android:text="@string/widget_value_placeholder"
+        android:textColor="@color/widget_on_surface"
+        android:gravity="center"
+        android:textSize="30sp"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMaxTextSize="44sp"
+        android:autoSizeMinTextSize="18sp"
+        android:fontFamily="@font/poppins_bold"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        tools:targetApi="26" />
+
+    <TextView
+        android:id="@+id/widget_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="@string/widget_no_data"
+        android:textColor="@color/widget_muted"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMaxTextSize="12sp"
+        android:autoSizeMinTextSize="9sp"
+        android:fontFamily="@font/poppins_medium"
+        android:includeFontPadding="false"
+        tools:targetApi="26" />
+
+</LinearLayout>
