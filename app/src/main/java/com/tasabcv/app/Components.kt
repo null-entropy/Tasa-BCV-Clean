@@ -1,7 +1,6 @@
 package com.tasabcv.app
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -45,12 +44,12 @@ import kotlin.math.roundToInt
  * presionar (tick tipo TextHandleMove: discreto, premium, sin vibración brusca).
  *
  * @param pressedScale escala al presionar (0.94f = hundimiento sutil por defecto).
- * @param springSpec curva del rebote; [RefreshPressSpring] da "peso" evidente.
+ * @param springSpec curva del movimiento; siempre un muelle compartido (v4.6.2).
  */
 fun Modifier.bounceClick(
     interactionSource: MutableInteractionSource,
     pressedScale: Float = 0.94f,
-    springSpec: SpringSpec<Float> = DefaultPressSpring,
+    springSpec: SpringSpec<Float> = MotionSpring,
     onClick: () -> Unit
 ): Modifier = composed {
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -77,20 +76,20 @@ fun Modifier.bounceClick(
         )
 }
 
-/** Curva de presión por defecto (segmentos y botones copiar): hundimiento sutil. */
-private val DefaultPressSpring = spring<Float>(stiffness = 300f, dampingRatio = 0.5f)
-
-/** Curva con "peso" para el botón de refrescar: hundimiento evidente con rebote contenido. */
-val RefreshPressSpring: SpringSpec<Float> = spring(
-    dampingRatio = Spring.DampingRatioMediumBouncy,
-    stiffness = Spring.StiffnessMediumLow
-)
-
-/** Curva de movimiento compartida: la misma para la cápsula y el selector. */
-private val IndicatorSpring = spring<Float>(
-    dampingRatio = Spring.DampingRatioMediumBouncy,
-    stiffness = Spring.StiffnessLow
-)
+// ---------------------------------------------------------------------------
+// Lenguaje de movimiento ÚNICO (v4.6.2): toda la app comparte estos muelles.
+//   MotionSpring  -> TODO movimiento (indicador deslizante, carrusel USD↔EUR,
+//                    transición de tabs, odómetro, tamaño del valor, presiones):
+//                    fluido, llega rápido y asienta sin sobresalto (damping
+//                    0.9 ≈ sin rebote visible; nunca sale de su burbuja).
+//   PopSpring     -> entradas "pop" (delta 0.55→1, mensajes de pill 0.85→1):
+//                    rebote mínimo y contenido.
+//   Los fades acompañan con tweens cortos (140–200 ms). Prohibido añadir
+//   springs ad-hoc fuera de este par (mandato de optimización §1).
+// ---------------------------------------------------------------------------
+val MotionSpring: SpringSpec<Float> = spring(dampingRatio = 0.9f, stiffness = 350f)
+val MotionSpringIntOffset: SpringSpec<IntOffset> = spring(dampingRatio = 0.9f, stiffness = 350f)
+val PopSpring: SpringSpec<Float> = spring(dampingRatio = 0.75f, stiffness = 420f)
 
 /**
  * Control segmentado neumorfista (v4.5.0): el contenedor es un HUECO hundido
@@ -133,10 +132,11 @@ fun SlidingSegmentedControl(
             val segmentWidth = maxWidth / count
             val indicatorShape = RoundedCornerShape((cornerRadius - 4.dp).coerceAtLeast(0.dp))
 
-            // Fracción 0..(count-1) animada; el indicador se desliza con spring.
+            // Fracción 0..(count-1) animada; el indicador desliza con el
+            // muelle compartido: fluido y SIEMPRE dentro de la burbuja.
             val fraction by animateFloatAsState(
                 targetValue = selectedIndex.toFloat(),
-                animationSpec = IndicatorSpring,
+                animationSpec = MotionSpring,
                 label = "SegmentIndicator"
             )
 

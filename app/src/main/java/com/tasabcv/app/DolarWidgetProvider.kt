@@ -68,7 +68,8 @@ class DolarWidgetProvider : AppWidgetProvider() {
         }
         views.setTextViewText(
             R.id.widget_date,
-            if (rate != null) "Actualizado: ${Format.fecha(rate.fechaActualizacion)}" else "Sin datos"
+            if (rate != null) "Actualizado: ${Format.fecha(rate.fechaActualizacion)}"
+            else context.getString(R.string.widget_no_data)
         )
         views.setTextViewText(R.id.widget_title, currency)
         views.setContentDescription(

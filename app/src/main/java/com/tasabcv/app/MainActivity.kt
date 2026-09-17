@@ -5,13 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -122,21 +120,21 @@ fun MainScreen(viewModel: DolarViewModel) {
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize(),
+            // Transición de tabs DIRECCIONAL y coherente con el indicador de
+            // la barra: la pantalla nueva entra deslizando desde el lado del
+            // tab elegido; la anterior se retira al lado opuesto. Muelles
+            // compartidos (§10): fluido, sin agrandamientos ni sobresaltos.
             enterTransition = {
-                // Aparición con "peso": crece un poco de más y se asienta (overshoot),
-                // mismo lenguaje de movimiento que el indicador deslizante (§13).
-                fadeIn(animationSpec = tween(220)) +
-                    scaleIn(
-                        initialScale = 0.92f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = 380f
-                        )
-                    )
+                val forward = targetState.destination.route != "tasas"
+                slideInHorizontally(MotionSpringIntOffset) { full ->
+                    if (forward) full / 4 else -full / 4
+                } + fadeIn(animationSpec = tween(200))
             },
             exitTransition = {
-                fadeOut(animationSpec = tween(180)) +
-                    scaleOut(targetScale = 1.02f, animationSpec = tween(180))
+                val forward = targetState.destination.route != "tasas"
+                slideOutHorizontally(MotionSpringIntOffset) { full ->
+                    if (forward) -full / 6 else full / 6
+                } + fadeOut(animationSpec = tween(160))
             }
         ) {
             composable("tasas") { TasasScreen(viewModel) }

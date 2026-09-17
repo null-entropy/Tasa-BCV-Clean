@@ -1,15 +1,12 @@
 package com.tasabcv.app
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -31,10 +28,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 /** Máximo de caracteres del número formateado (sanity check ≤ 1.000.000 → "1.000.000,00"). */
@@ -98,8 +96,8 @@ fun TasasScreen(viewModel: DolarViewModel) {
             CurrencyCard(
                 title = stringResource(R.string.currency_usd_title),
                 state = uiState.usdState,
+                isRefreshing = isRefreshing,
                 onCopy = { copyRate(context, it, "USD") },
-                onShare = { shareRate(context, it, "USD") },
                 onRetry = { viewModel.refresh() },
                 modifier = Modifier
                     .weight(1f)
@@ -111,8 +109,8 @@ fun TasasScreen(viewModel: DolarViewModel) {
             CurrencyCard(
                 title = stringResource(R.string.currency_eur_title),
                 state = uiState.eurState,
+                isRefreshing = isRefreshing,
                 onCopy = { copyRate(context, it, "EUR") },
-                onShare = { shareRate(context, it, "EUR") },
                 onRetry = { viewModel.refresh() },
                 modifier = Modifier
                     .weight(1f)
@@ -133,7 +131,7 @@ private fun updatedDate(uiState: DolarUiState): String {
 /**
  * Barra superior del apartado Tasas: superficie elevada (degradado + bisel +
  * sombra) con esquinas 32dp. Fecha a la izquierda, botón de refrescar a la
- * derecha: círculo elevado que se HUNDE al presionar ([RefreshPressSpring]).
+ * derecha: círculo elevado que se HUNDE al presionar ([MotionSpring]).
  */
 @Composable
 private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> Unit) {
@@ -163,7 +161,7 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
                 .bounceClick(
                     interactionSource = refreshInteractionSource,
                     pressedScale = 0.85f,
-                    springSpec = RefreshPressSpring
+                    springSpec = MotionSpring
                 ) {
                     if (!isRefreshing) onRefresh()
                 },
@@ -187,28 +185,58 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
     }
 }
 
+/**
+ * Ficha de divisa INTERACTIVA: la ficha entera actúa como botón que copia la
+ * tasa. Al presionar se hunde físicamente ([neuSurface] + [bounceClick]) y
+ * al soltar se copia el monto (Toast + destello en la pill del pie). Solo es
+ * clickable con tasa cargada (Loaded); en Loading/Empty no hay nada que copiar.
+ *
+ * Esqueleto unificado para TODOS los estados: título arriba, zona de tasa
+ * expandida (weight 1f), divisor fijo y pie de estado abajo. El divisor y el
+ * pie jamás se mueven entre Loading/Empty/Loaded (distribución consistente).
+ */
 @Composable
 fun CurrencyCard(
     title: String,
     state: SingleRateState,
+    isRefreshing: Boolean,
     onCopy: (DolarRate) -> Unit,
-    onShare: (DolarRate) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = appColors
-    // Solo hay pie de "Sin conexión" cuando el fetch falló y se muestra caché;
-    // sin aviso ese pie se colapsa por completo (sin espacio en blanco) y la
-    // zona de tasa crece: el valor y el delta ganan tamaño y bajan.
-    val hasWarning = (state as? SingleRateState.Loaded)?.let { it.isFromCache && it.warning != null } ?: false
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
 
-    // Esqueleto unificado para TODOS los estados: título arriba, zona de
-    // tasa expandida (weight 1f), divisor fijo y acciones abajo. El divisor
-    // y las acciones jamás se mueven entre Loading/Empty/Loaded ni entre
-    // USD y EUR (distribución consistente garantizada).
+    // Destello "Tasa copiada" en la pill del pie: dura ~1.2 s y regresa sola
+    // al estado de conexión correspondiente.
+    var flashKey by remember { mutableStateOf(0) }
+    var showFlash by remember { mutableStateOf(false) }
+    LaunchedEffect(flashKey) {
+        if (flashKey > 0) {
+            showFlash = true
+            delay(1_200)
+            showFlash = false
+        }
+    }
+
     Column(
         modifier = modifier
-            .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+            .neuSurface(colors, RoundedCornerShape(32.dp), pressed, elevation = 12.dp)
+            .then(
+                if (state is SingleRateState.Loaded) {
+                    Modifier.bounceClick(
+                        interactionSource = interactionSource,
+                        pressedScale = 0.97f,
+                        springSpec = MotionSpring
+                    ) {
+                        onCopy(state.rate)
+                        flashKey++
+                    }
+                } else {
+                    Modifier
+                }
+            )
             .padding(horizontal = 16.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -221,7 +249,7 @@ fun CurrencyCard(
         Spacer(Modifier.height(12.dp))
 
         // Zona de tasa: la MISMA zona visual en los 3 estados (sin saltos al
-        // terminar de cargar). El divisor y las acciones quedan fijos abajo.
+        // terminar de cargar). El divisor y el pie quedan fijos abajo.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -266,15 +294,13 @@ fun CurrencyCard(
                     val rate = state.rate
                     val formatted = Format.number(rate.promedio)
 
-                    // Sin pie de aviso la zona de tasa crece: el valor sube
-                    // un peldaño de tamaño (transición animada, sin saltos).
                     val valueFontSize by animateFloatAsState(
                         targetValue = when {
-                            formatted.length <= 8 -> if (hasWarning) 48f else 52f
-                            formatted.length <= 10 -> if (hasWarning) 42f else 46f
-                            else -> if (hasWarning) 36f else 40f
+                            formatted.length <= 8 -> 52f
+                            formatted.length <= 10 -> 46f
+                            else -> 40f
                         },
-                        animationSpec = tween(300),
+                        animationSpec = MotionSpring,
                         label = "ValueFontSize"
                     )
 
@@ -302,111 +328,288 @@ fun CurrencyCard(
                             )
                         }
 
-                        // Slot del delta SIEMPRE reservado: el valor queda a la
-                        // misma altura en USD y EUR aunque solo uno tenga delta;
-                        // el chip entra con fade dentro del slot sin mover nada.
+                        // Slot del delta SIEMPRE reservado y ocupado: el valor
+                        // queda a la misma altura en USD y EUR en cualquier caso.
                         Spacer(Modifier.height(10.dp))
-                        Box(
-                            modifier = Modifier.height(36.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val previous = rate.previousPromedio
-                            if (previous != null) {
-                                DeltaChip(
-                                    current = rate.promedio,
-                                    previous = previous,
-                                    large = !hasWarning
-                                )
-                            }
-                        }
+                        DeltaSlot(current = rate.promedio, previous = rate.previousPromedio)
                     }
                 }
             }
         }
 
-        // Divisor fijo: separa la zona de tasa de las acciones; sin aviso
-        // queda directamente sobre los botones (sin hueco muerto).
+        // Divisor fijo: separa la zona de tasa del pie de estado.
         HorizontalDivider(color = colors.divider)
-
-        // Pie de aviso COLAPSABLE: solo existe cuando hay aviso de "Sin
-        // conexión" (fetch falló y se muestra caché). Sin aviso colapsa a
-        // cero y el espacio se redistribuye hacia la zona de tasa.
-        AnimatedVisibility(
-            visible = hasWarning,
-            enter = fadeIn(tween(200)) + expandVertically(tween(250)),
-            exit = fadeOut(tween(150)) + shrinkVertically(tween(250))
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(12.dp))
-                Box(
-                    modifier = Modifier.height(22.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CardStatusRow(
-                        warning = (state as? SingleRateState.Loaded)?.warning ?: "Sin conexión"
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-        }
         Spacer(Modifier.height(12.dp))
 
-        // Slot de acciones reservado (48dp): copiar/compartir en Loaded,
-        // "Reintentar" en Empty; vacío en Loading (misma posición siempre).
+        // Pie SIEMPRE presente. Pill de estado de conexión PERFECTAMENTE
+        // centrada cuando está sola (Loaded/Loading); a la izquierda con
+        // "Reintentar" a la derecha solo en Empty (evita solaparse en
+        // pantallas pequeñas).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            contentAlignment = Alignment.Center
+            contentAlignment = if (state is SingleRateState.Empty) Alignment.CenterStart else Alignment.Center
         ) {
-            when (state) {
-                is SingleRateState.Loaded -> {
-                    Row(horizontalArrangement = Arrangement.Center) {
-                        CardActionButton(
-                            icon = Icons.Filled.ContentCopy,
-                            contentDescription = "Copiar",
-                            onClick = { onCopy(state.rate) }
-                        )
-                        Spacer(Modifier.width(16.dp))
-                        CardActionButton(
-                            icon = Icons.Filled.Share,
-                            contentDescription = "Compartir",
-                            onClick = { onShare(state.rate) }
-                        )
-                    }
-                }
-                is SingleRateState.Empty -> {
-                    Button(onClick = onRetry) { Text("Reintentar") }
-                }
-                is SingleRateState.Loading -> Unit
+            StatusPill(
+                status = connectionStatus(state, isRefreshing),
+                flash = showFlash
+            )
+            if (state is SingleRateState.Empty) {
+                Button(
+                    onClick = onRetry,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) { Text("Reintentar") }
             }
         }
     }
 }
 
-/** Botón circular de acción de la ficha: elevado en reposo, hundido al presionar. */
-@Composable
-private fun CardActionButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    val colors = appColors
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
+/** Estados de conexión con el proveedor que pinta la pill del pie. */
+private enum class ConnectionStatus {
+    /** Dato fresco descargado del proveedor (o caché reciente y sana): todo OK. */
+    Online,
 
+    /** Caché visible mientras la descarga en curso aún no termina. */
+    Updating,
+
+    /** Sin caché que mostrar; la primera descarga está en curso. */
+    Connecting,
+
+    /** Fetch falló y se muestra el último dato guardado. */
+    OfflineCached,
+
+    /** Sin conexión y sin caché que mostrar. */
+    Offline
+}
+
+/** Estado de conexión con el proveedor, derivado del estado de la moneda. */
+private fun connectionStatus(state: SingleRateState, isRefreshing: Boolean): ConnectionStatus =
+    when (state) {
+        is SingleRateState.Loading -> ConnectionStatus.Connecting
+        is SingleRateState.Empty -> ConnectionStatus.Offline
+        is SingleRateState.Loaded -> when {
+            state.isFromCache && state.warning != null -> ConnectionStatus.OfflineCached
+            state.isFromCache && isRefreshing -> ConnectionStatus.Updating
+            else -> ConnectionStatus.Online
+        }
+    }
+
+/**
+ * Pill del pie (donde vivían los botones copiar/compartir): HERMANA VISUAL del
+ * chip del delta — fondo translúcido 10% + borde 28% + esquinas 16dp — con el
+ * color según estado (verde en línea, rojo sin conexión, neutro conectando,
+ * acento al destellar "Tasa copiada"). El color ES el estado: sin punto
+ * separado. Al copiar destella y regresa sola al estado correspondiente.
+ *
+ * UN solo AnimatedContent maneja todos los cambios (estado ↔ estado y estado ↔
+ * destello): cuando el mensaje no cambia no anima nada (targetState igual);
+ * las transiciones usan los muelles compartidos, sin capas ni loops.
+ */
+@Composable
+private fun StatusPill(status: ConnectionStatus, flash: Boolean) {
+    val colors = appColors
+    val content = pillContent(status, flash)
+    val pillColor = when (content) {
+        PillContent.CopyFlash -> colors.accent
+        is PillContent.Status -> when (content.status) {
+            ConnectionStatus.Online -> colors.deltaDown
+            ConnectionStatus.Updating, ConnectionStatus.Connecting -> colors.muted
+            ConnectionStatus.OfflineCached, ConnectionStatus.Offline -> MaterialTheme.colorScheme.error
+        }
+    }
     Box(
         modifier = Modifier
-            .size(48.dp)
-            .neuSurface(colors, CircleShape, pressed, elevation = 6.dp)
-            .bounceClick(interactionSource, onClick = onClick),
+            .background(pillColor.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+            .border(1.dp, pillColor.copy(alpha = 0.28f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
+        AnimatedContent(
+            targetState = content,
+            transitionSpec = {
+                (fadeIn(tween(180)) +
+                    slideInVertically(MotionSpringIntOffset) { it / 3 } +
+                    scaleIn(PopSpring, initialScale = 0.85f)) togetherWith
+                    (fadeOut(tween(140)) + scaleOut(targetScale = 0.92f, animationSpec = tween(140)))
+            },
+            label = "StatusPill"
+        ) { pill ->
+            when (pill) {
+                PillContent.CopyFlash -> CopyFlashRow()
+                is PillContent.Status -> StatusRow(pill.status)
+            }
+        }
+    }
+}
+
+/** Contenido lógico de la pill: destello de copia o estado de conexión. */
+private sealed interface PillContent {
+    data object CopyFlash : PillContent
+    data class Status(val status: ConnectionStatus) : PillContent
+}
+
+private fun pillContent(status: ConnectionStatus, flash: Boolean): PillContent =
+    if (flash) PillContent.CopyFlash else PillContent.Status(status)
+
+/** Mensaje del destello: "Tasa copiada" con check, en color de acento. */
+@Composable
+private fun CopyFlashRow() {
+    val colors = appColors
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            icon,
-            contentDescription = contentDescription,
-            tint = colors.accent,
-            modifier = Modifier.size(22.dp)
+            Icons.Filled.Check,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = colors.accent
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            "Tasa copiada",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.accent
+        )
+    }
+}
+
+/** Mensajes de estado de conexión: el color del texto replica el del chip. */
+@Composable
+private fun StatusRow(status: ConnectionStatus) {
+    val colors = appColors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        when (status) {
+            ConnectionStatus.Online -> {
+                StatusText("En línea", color = colors.deltaDown)
+            }
+            ConnectionStatus.Updating -> {
+                StatusText("Actualizando…", color = colors.muted)
+            }
+            ConnectionStatus.Connecting -> {
+                StatusText("Conectando…", color = colors.muted)
+            }
+            ConnectionStatus.OfflineCached -> {
+                StatusIcon(icon = Icons.Filled.WifiOff, tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(5.dp))
+                StatusText("Sin conexión · mostrando caché", color = MaterialTheme.colorScheme.error)
+            }
+            ConnectionStatus.Offline -> {
+                StatusIcon(icon = Icons.Filled.WifiOff, tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(5.dp))
+                StatusText("Sin conexión", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusText(text: String, color: Color) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = color
+    )
+}
+
+/** Ícono de estado pequeño (WifiOff): siempre rojo de error. */
+@Composable
+private fun StatusIcon(icon: ImageVector, tint: Color) {
+    Icon(
+        icon,
+        contentDescription = null,
+        modifier = Modifier.size(14.dp),
+        tint = tint
+    )
+}
+
+/**
+ * Slot del delta con altura fija SIEMPRE ocupado: chip ▲/▼ con la diferencia
+ * cuando hay valor previo distinto, o ficha fantasma ("—") neutra con las
+ * MISMAS medidas cuando no hay dato con qué comparar. Nunca queda un hueco.
+ * La animación solo corre durante la transición: en reposo el chip es
+ * estático (cero costo continuo).
+ */
+@Composable
+private fun DeltaSlot(current: Double, previous: Double?) {
+    Box(
+        modifier = Modifier.height(36.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedContent(
+            targetState = previous != null && !DolarRepository.sameRate(previous, current),
+            transitionSpec = {
+                if (targetState) {
+                    // Neutro → valor: POP de entrada (0.55 → 1 con rebote
+                    // contenido de PopSpring), el mismo peso del resto de la app.
+                    (fadeIn(tween(180)) + scaleIn(
+                        initialScale = 0.55f,
+                        animationSpec = PopSpring
+                    )) togetherWith
+                        (fadeOut(tween(150)) + scaleOut(targetScale = 0.9f, animationSpec = tween(150)))
+                } else {
+                    // Valor → neutro: retirada suave con la misma lengua.
+                    (fadeIn(tween(200)) + scaleIn(initialScale = 0.9f, animationSpec = MotionSpring)) togetherWith
+                        (fadeOut(tween(150)) + scaleOut(targetScale = 0.9f, animationSpec = tween(150)))
+                }
+            },
+            label = "DeltaSlot"
+        ) { hasDelta ->
+            if (hasDelta) {
+                DeltaChip(current = current, previous = previous ?: current)
+            } else {
+                GhostDeltaChip()
+            }
+        }
+    }
+}
+
+/**
+ * Chip real de variación ▲/▼: rojo para subida, verde para bajada, colores
+ * adaptados por tema (claritos en claro, oscuros en oscuro).
+ */
+@Composable
+private fun DeltaChip(current: Double, previous: Double) {
+    val colors = appColors
+    val delta = current - previous
+    val isPositive = delta > 0
+    val color = if (isPositive) colors.deltaUp else colors.deltaDown
+    val icon = if (isPositive) "▲" else "▼"
+    val sign = if (isPositive) "+" else "-"
+    Box(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+            .border(1.dp, color.copy(alpha = 0.28f), RoundedCornerShape(16.dp))
+    ) {
+        Text(
+            text = "$icon $sign${Format.number(abs(delta))} Bs",
+            color = color,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
+        )
+    }
+}
+
+/**
+ * Ficha fantasma: idéntica al chip real en forma y tamaño (padding, esquinas
+ * y peso de texto) pero neutra y SIN datos — indica "sin valor previo con
+ * qué comparar" ocupando exactamente su lugar.
+ */
+@Composable
+private fun GhostDeltaChip() {
+    val colors = appColors
+    Box(
+        modifier = Modifier
+            .background(colors.muted.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
+            .border(1.dp, colors.muted.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+    ) {
+        Text(
+            text = "—",
+            color = colors.muted,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
         )
     }
 }
@@ -474,13 +677,13 @@ private fun RollingCharSlot(char: Char?, direction: Float, fontSize: Float, colo
                 val enterOffset: (Int) -> Int = { height -> if (upward) height else -height }
                 val exitOffset: (Int) -> Int = { height -> if (upward) -height else height }
                 (slideInVertically(
-                    animationSpec = tween(400, easing = FastOutSlowInEasing),
+                    animationSpec = MotionSpringIntOffset,
                     initialOffsetY = enterOffset
-                ) + fadeIn(tween(250))) togetherWith
+                ) + fadeIn(tween(200))) togetherWith
                     (slideOutVertically(
-                        animationSpec = tween(400, easing = FastOutSlowInEasing),
+                        animationSpec = MotionSpringIntOffset,
                         targetOffsetY = exitOffset
-                    ) + fadeOut(tween(250)))
+                    ) + fadeOut(tween(200)))
             },
             contentKey = { it },
             label = "RollingChar"
@@ -495,58 +698,5 @@ private fun RollingCharSlot(char: Char?, direction: Float, fontSize: Float, colo
                 maxLines = 1
             )
         }
-    }
-}
-
-/** Chip de variación ▲/▼ con fade. Vive en un slot de altura fija en la tarjeta,
- *  así el valor no cambia de posición cuando aparece o desaparece. Colores de
- *  delta adaptados por tema (claritos en claro, oscuros en oscuro). */
-@Composable
-private fun DeltaChip(current: Double, previous: Double, large: Boolean) {
-    val showDelta = !DolarRepository.sameRate(previous, current)
-    AnimatedVisibility(
-        visible = showDelta,
-        enter = fadeIn(tween(250)) + scaleIn(initialScale = 0.9f, animationSpec = tween(250)),
-        exit = fadeOut(tween(150))
-    ) {
-        val colors = appColors
-        val delta = current - previous
-        val isPositive = delta > 0
-        val color = if (isPositive) colors.deltaUp else colors.deltaDown
-        val icon = if (isPositive) "▲" else "▼"
-        val sign = if (isPositive) "+" else "-"
-        Box(
-            modifier = Modifier
-                .background(color.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
-                .border(1.dp, color.copy(alpha = 0.28f), RoundedCornerShape(16.dp))
-        ) {
-            Text(
-                text = "$icon $sign${Format.number(abs(delta))} Bs",
-                color = color,
-                fontSize = if (large) 17.sp else 16.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = if (large) 5.dp else 6.dp)
-            )
-        }
-    }
-}
-
-/** Fila del pie de la tarjeta: solo el aviso de "Sin conexión" (la fecha vive
- *  en la barra superior). Con fade, sin desplazar ningún elemento. */
-@Composable
-private fun CardStatusRow(warning: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Filled.WifiOff,
-            contentDescription = null,
-            modifier = Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.error
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = warning,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.error
-        )
     }
 }

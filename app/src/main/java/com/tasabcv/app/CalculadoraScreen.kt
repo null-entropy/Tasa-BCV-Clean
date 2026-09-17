@@ -128,10 +128,10 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                             // USD → EUR: desplazar a la izquierda.
                             AnimatedContentTransitionScope.SlideDirection.Left
                         }
-                        (fadeIn(tween(260)) +
-                            slideIntoContainer(direction, animationSpec = tween(300))) togetherWith
-                            (fadeOut(tween(260)) +
-                                slideOutOfContainer(direction, animationSpec = tween(300)))
+                        (fadeIn(tween(200)) +
+                            slideIntoContainer(direction, animationSpec = MotionSpringIntOffset)) togetherWith
+                            (fadeOut(tween(160)) +
+                                slideOutOfContainer(direction, animationSpec = MotionSpringIntOffset))
                     },
                     label = "CalcCurrencySwitch"
                 ) { usdBase ->

@@ -29,9 +29,9 @@ class DolarRepository(context: Context) {
         val endpoint = if (currency == "EUR") ENDPOINT_DOLARAPI_EUR else ENDPOINT_DOLARAPI_USD
         val rate = fetchDolarApi(endpoint)
         if (rate != null) {
-            saveCache(currency, rate)
-            val fullRate = getCachedRate(currency) ?: rate
-            return DolarResult.Success(fullRate)
+            // saveCache devuelve la tasa RESUELTA (con el valor previo calculado
+            // en memoria): cero relecturas de caché tras un fetch exitoso.
+            return DolarResult.Success(saveCache(currency, rate))
         }
         return DolarResult.Error(ERROR_MESSAGE, getCachedRate(currency))
     }
@@ -88,8 +88,14 @@ class DolarRepository(context: Context) {
         }
     }
 
-    private fun saveCache(currency: String, rate: DolarRate) {
+    /**
+     * Persiste la tasa y devuelve la versión RESUELTA (con [DolarRate.previousPromedio]
+     * calculado en memoria): el previo solo se relee cuando NO hubo cambio.
+     * `readDouble` ya filtra valores ≤ 0, así que basta con comparar.
+     */
+    private fun saveCache(currency: String, rate: DolarRate): DolarRate {
         val oldPromedio = readDouble(keyPromedio(currency))
+        val changed = oldPromedio != null && !sameRate(oldPromedio, rate.promedio)
         val editor = prefs.edit()
             .putString(keyPromedio(currency), rate.promedio.toString())
             .putString(keyFecha(currency), rate.fechaActualizacion)
@@ -97,11 +103,13 @@ class DolarRepository(context: Context) {
             .putLong(keyCacheTime(currency), System.currentTimeMillis())
 
         // Solo cuando hay cambio real de tasa (no en cada refresh del mismo día).
-        if (oldPromedio != null && oldPromedio > 0.0 && !sameRate(oldPromedio, rate.promedio)) {
+        if (oldPromedio != null && changed) {
             editor.putString(keyPrevious(currency), oldPromedio.toString())
         }
 
         editor.apply()
+        val previous = if (changed) oldPromedio else readDouble(keyPrevious(currency))
+        return rate.copy(previousPromedio = previous)
     }
 
     /** Lee Double guardado como String; fallback a Float legacy (evita ClassCastException). */
@@ -130,7 +138,7 @@ class DolarRepository(context: Context) {
         private const val ENDPOINT_DOLARAPI_EUR = "https://ve.dolarapi.com/v1/euros/oficial"
         private const val FUENTE = "dolarapi.com"
         private const val TIMEOUT_MS = 6000
-        private const val USER_AGENT = "TasaBCVCleam-App/4.5.0 (Android)"
+        private const val USER_AGENT = "TasaBCVCleam-App/4.6.3 (Android)"
         private const val ERROR_MESSAGE = "No se pudo conectar con la fuente de tasas."
 
         private const val KEY_PROMEDIO = "promedio"

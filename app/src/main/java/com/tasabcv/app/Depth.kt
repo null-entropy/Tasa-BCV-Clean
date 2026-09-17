@@ -56,6 +56,8 @@ fun Modifier.neuInset(colors: AppColors, shape: Shape): Modifier =
 /**
  * Superficie interactiva: elevada en reposo, hundida al presionar. El swap de
  * bisel + el scale de [bounceClick] dan la sensación física de "pulsar".
+ * Uso también en superficies grandes (fichas de tasas): costo por presión =
+ * un solo intercambio de modificadores (sin trabajo de dibujo por frame).
  */
 fun Modifier.neuSurface(colors: AppColors, shape: Shape, pressed: Boolean, elevation: Dp = 8.dp): Modifier =
     if (pressed) neuInset(colors, shape) else neuRaised(colors, shape, elevation)

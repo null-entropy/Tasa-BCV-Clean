@@ -8,6 +8,8 @@ App Android nativa Kotlin + Compose. Muestra dólar/euro oficial BCV y calculado
 
 **Lema:** robusta, limpia, minimalista, ligera, optimizada, rápida y sin anuncios. Toda decisión (código, diseño, dependencia) debe mantenerlo.
 
+**MANDATO DE OPTIMIZACIÓN (estRICTO, aplica a TODO cambio):** toda implementación nueva debe justificar su costo (CPU/GPU/memoria/tamaño de APK). Si dos diseños logran lo mismo, entra el más ligero. Prohibido: trabajo pesado de dibujo por frame (sombras/degradados interpolados por frame, animaciones que nunca asientan), pollings, dependencias nuevas sin necesidad, recomposiciones evitables. El lema manda sobre el brillo visual: si una animación es más "bonita" pero más cara, se elige la barata.
+
 **Dato clave del dominio:** el BCV publica **un solo valor por día hábil** (~4–6:30 pm hora Caracas). No existe tasa "en tiempo real": la app nunca simula actualizaciones intradía. La app usa dolarapi.com como proveedor único (el BCV no tiene API pública) y guarda caché local.
 
 ## 2. Stack (no cambiar sin razón)
@@ -39,13 +41,13 @@ Regenerable (no versionar): `.gradle/`, `app/build/`. Nunca borrar ni renombrar:
 ```
 Compose collectAsState() → DolarViewModel → DolarRepository (dolarapi.com + caché SharedPreferences) → HTTP GET (HttpURLConnection)
 ```
-- `DolarUiState = usdState + eurState` : `Loading | Loaded(rate,isFromCache,warning) | Empty`. `warning` solo cuando un fetch terminó en error y se muestra caché; la caché pintada al instante en el arranque NO lo muestra. Pie colapsa a 0dp si no hay warning.
+- `DolarUiState = usdState + eurState` : `Loading | Loaded(rate,isFromCache,warning) | Empty`. `warning` solo cuando un fetch terminó en error y se muestra caché; la caché pintada al instante en el arranque NO lo muestra. Pie SIEMPRE presente: pill de estado de conexión (estilo chip del delta, color = estado) PERFECTAMENTE centrada cuando está sola (Loaded/Loading); pill a la izquierda con "Reintentar" a la derecha solo en Empty. Estados: `En línea` verde / `Sin conexión · mostrando caché` / `Sin conexión` rojo / `Conectando…` / `Actualizando…` durante refresco.
 - `loadOnFirstOpen()` muestra caché instantánea (`showCacheNow()`), refresca solo si >30min o sin fetch. `refresh()` mantiene visible y actualiza USD+EUR juntos al terminar; `isRefreshing` separado bloquea dobles fetch.
 - `onAppResumed()` revalida solo si ≥30min desde el último fetch exitoso. Sin polling en 2º plano ni WorkManager.
 - **Caché** `dolar_bcv_prefs`: `promedio_*`, `fecha_*`, `fuente_*`, `cache_time_*`, `previous_*` + `widget_currency`. Números como String (tolerante Float legacy). Sanity `(0,1_000_000]`. Delta local `sameRate` 0.00005, solo en Tasas.
 
 ## 5. Fuente de datos
-El BCV no tiene API pública; la app usa **dolarapi.com como proveedor único** (antes había una cadena de 3 proveedores: pydolarve.dev y bcv.org.ve fueron eliminados de forma profunda por estar caído el primero y ser frágil el scraping del segundo). Timeout **6 s por moneda**. Constantes en `DolarRepository.companion`; `USER_AGENT = "TasaBCVCleam-App/4.5.0 (Android)"`.
+El BCV no tiene API pública; la app usa **dolarapi.com como proveedor único** (antes había una cadena de 3 proveedores: pydolarve.dev y bcv.org.ve fueron eliminados de forma profunda por estar caído el primero y ser frágil el scraping del segundo). Timeout **6 s por moneda**. Constantes en `DolarRepository.companion`; `USER_AGENT = "TasaBCVCleam-App/4.6.3 (Android)"`.
 
 | Moneda | Endpoint | Valor | Fecha |
 | --- | --- | --- | --- |
@@ -72,12 +74,12 @@ Compila `assembleRelease` (minify+shrinkResources+firma) y copia a `C:\Users\Adm
 
 Nunca perder/regenerar/renombrar (identidad legacy `Dolar BCV` intencional). Nunca commitear `keystore/` ni `keystore.properties`. `storeFile` relativo a raíz (`rootProject.file(...)`). Verificar:
 ```bash
-"C:/Android/Sdk/build-tools/34.0.0/apksigner.bat" verify --verbose --print-certs "$env:USERPROFILE\Downloads\TasaBCV-Cleam-v4.5.0.apk"
+"C:/Android/Sdk/build-tools/34.0.0/apksigner.bat" verify --verbose --print-certs "$env:USERPROFILE\Downloads\TasaBCV-Cleam-v4.6.3.apk"
 # debe decir Verifies + CN=Dolar BCV
 ```
 
 ## 8. Identidad
-`applicationId com.tasabcv.app` (ex `com.dolarbcv.app` v4.0.0), `versionCode 19 / versionName 4.5.0` en `app/build.gradle.kts` (cada release requiere `versionCode` mayor), nombre `Tasa BCV - Cleam`, permisos solo `INTERNET` + `ACCESS_NETWORK_STATE`.
+`applicationId com.tasabcv.app` (ex `com.dolarbcv.app` v4.0.0), `versionCode 23 / versionName 4.6.3` en `app/build.gradle.kts` (cada release requiere `versionCode` mayor), nombre `Tasa BCV - Cleam`, permisos solo `INTERNET` + `ACCESS_NETWORK_STATE`.
 
 ## 9. Widget
 `DolarWidgetProvider` RemoteViews clásico. `widget_dolar.xml` + `dolar_widget_info.xml` (2x2, 30min). **Solo lee caché, no hace HTTP.** Toggle `USD↔EUR` broadcast `com.tasabcv.app.TOGGLE_CURRENCY`, tap abre `MainActivity`. Sin delta, `RelativeSizeSpan` 0.5x para `Bs`. `refreshAll()` se llama desde el ViewModel tras cada fetch exitoso. Layout: chip de moneda arriba, valor grande (`weight 3`, autoSize 18–44sp) centrado, fecha al pie.
@@ -86,8 +88,10 @@ Nunca perder/regenerar/renombrar (identidad legacy `Dolar BCV` intencional). Nun
 - **Buenas prácticas móvil:** Compose eficiente (evitar recomposiciones, `remember`, estado mínimo), 60fps y APK ligero. Subir nivel visual sin romper minimalismo ni rendimiento.
 - **Edge-to-edge (v4.3.1):** `enableEdgeToEdge()` en `MainActivity`; bottom bar con `navigationBarsPadding()`. Orientación NO bloqueada (el manifest usa `configChanges`). Tasas reparte el alto con `weight`; Calculadora usa `verticalScroll`. El splash XML (`themes.xml`) define `statusBarColor`/`navigationBarColor`; en runtime las barras quedan transparentes y `Theme.kt` solo controla la apariencia de los íconos.
 - **Lint:** `abortOnError=false` (advierte, no bloquea); desactivados `UnusedResources`, `IconMissingDensityFolder`, `Typos`, `Overdraw` (`app/build.gradle.kts`).
-- **Grafito monocromo** `Theme.kt` (`AppColors`/`LocalAppColors`, no dynamic color) + neumorfismo `Depth.kt` (`neuRaised/neuInset/neuSurface` sin blur). `bounceClick` + haptics sutil (`TextHandleMove`) + `RefreshPressSpring` + `SlidingSegmentedControl` (esquinas 32dp).
+- **Grafito monocromo** `Theme.kt` (`AppColors`/`LocalAppColors`, no dynamic color) + neumorfismo `Depth.kt` (`neuRaised/neuInset/neuSurface` sin blur). `bounceClick` + haptics sutil (`TextHandleMove`) + muelles compartidos (`MotionSpring`/`PopSpring`, ver bullet propio) + `SlidingSegmentedControl` (esquinas 32dp).
 - **Odómetro por dígitos (v4.4.7):** 12 slots anclados a la derecha; cada carácter rueda hacia arriba si sube, hacia abajo si baja, con fade y clip por slot. Delta ▲/▼ en chip, colores adaptados por tema.
+- **Lenguaje de movimiento ÚNICO (v4.6.2):** TODO movimiento de la app usa los muelles compartidos de `Components.kt`: `MotionSpring` (Float e IntOffset, damping 0.9 / stiffness 350 — indicador deslizante, carrusel USD↔EUR, transición de tabs, odómetro, tamaño del valor, presiones) y `PopSpring` (damping 0.75 / stiffness 420 — entradas pop: delta 0.55→1, mensajes de pill 0.85→1). Los fades acompañan con tweens cortos (140–200 ms). Prohibido añadir springs ad-hoc fuera de este par (§1). El indicador del segmented asienta SIEMPRE dentro de su burbuja (sin overshoot visible) y las transiciones de tabs/selector son direccionales (coherentes entre sí).
+- **Fichas tasas (v4.6.2):** sin botones copiar/compartir (compartir eliminado de raíz; `shareRate` ya no existe). Tocar la ficha copia la tasa: hundimiento binario `neuSurface` + `bounceClick` 0.97f (patrón probado de los botones; la interpolación continua por frame provocaba ANR en el dispositivo y fue eliminada de raíz con `neuPressable` en v4.6.0) + pill del pie destella "Tasa copiada" ~1.2 s (único `AnimatedContent` con los muelles compartidos; cero trabajo si el mensaje no cambia). Pie: pill PERFECTAMENTE centrada cuando está sola (Loaded/Loading); pill izquierda + Reintentar derecha solo en Empty. Pill estilo chip del delta: fondo translúcido 10% + borde 28% + esquinas 16dp, color = estado (verde en línea, rojo sin conexión, neutro conectando/actualizando, acento al copiar); SIN punto separado (el color comunica). Delta en slot fijo 36dp: chip ▲/▼ real con pop de `PopSpring` al entrar, o ficha fantasma "—" con idénticas medidas cuando no hay `previous_*` con qué comparar (nunca queda hueco).
 - **Calculadora:** `.`=miles visual, `,` decimal (2 dec). `CurrencyVisualTransformation` + `sanitizeInput()`. Selector USD/EUR limpia campos. Cambio de moneda con carrusel horizontal.
 - ProGuard mantiene el modelo (`DolarRate`, `DolarResult`, `DolarUiState`, `SingleRateState` y sus `$*`), `MainActivity`, `DolarWidgetProvider`, `kotlin.Metadata`, `org.json`. Si añades reflexión → añade reglas.
 
@@ -108,7 +112,9 @@ Nunca perder/regenerar/renombrar (identidad legacy `Dolar BCV` intencional). Nun
 - **"No trae datos":** 1) probar los endpoints de dolarapi con curl (§5); 2) si dolarapi cae, la app muestra caché con aviso; 3) revisar `dolar_bcv_prefs`.
 
 ## 13. Checklist release
-- [ ] Loading/Loaded/Empty + caché instantánea + offline con aviso (sin hueco)
+- [ ] Loading/Loaded/Empty + caché instantánea + pill de estado correcta (en línea/offline/caché)
+- [ ] Ficha: tap copia la tasa (hundimiento 3D + destello); sin botones copiar/compartir
+- [ ] Delta siempre visible: chip ▲/▼ real o fantasma "—" (sin hueco)
 - [ ] Odómetro por dígitos sin cortes ni superposiciones
 - [ ] Calculadora no crashea con vacío/letras, formato VE correcto
 - [ ] Widget sin delta: tasa y fecha armónicas; toggle USD/EUR funciona
@@ -122,6 +128,7 @@ Dependencia del proveedor comunitario dolarapi.com; si cae → caché o reintent
 ## 15. Convenciones
 Comentarios en español, paquete `com.tasabcv.app`, estilo Kotlin oficial, opt-ins `ExperimentalMaterial3Api`/`ExperimentalFoundationApi` habilitados en `app/build.gradle.kts`.
 - **Buenas prácticas Kotlin móvil:** funciones pequeñas, sin librerías pesadas, respetar `HttpURLConnection+org.json` y ProGuard.
+- **Optimización obligatoria (§1):** al añadir código, evaluar costo por frame (nada de sombras/degradados animados por frame en superficies grandes), recomposiciones mínimas, springs que asientan, sin pollings ni dependencias nuevas; en cada release revisar el peso del APK.
 - **Coherencia:** si añades pantalla, moneda, clave de caché o cambias build, actualiza este doc en el mismo cambio.
 
 ## 16. Comunicación
