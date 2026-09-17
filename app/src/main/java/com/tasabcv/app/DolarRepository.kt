@@ -2,8 +2,6 @@ package com.tasabcv.app
 
 import android.content.Context
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -20,34 +18,29 @@ sealed class DolarResult {
 }
 
 /**
- * Repositorio: cadena de 3 proveedores con fallback y caché por moneda.
+ * Repositorio: proveedor único dolarapi.com + caché por moneda.
+ * Sin cadena de fallback: una sola fuente, respuesta directa y rápida.
  */
 class DolarRepository(context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun fetchRate(currency: String): DolarResult {
-        for (provider in PROVIDERS) {
-            try {
-                val rate = provider.fetch(currency) ?: continue
-                if (isSane(rate.promedio)) {
-                    saveCache(currency, rate)
-                    val fullRate = getCachedRate(currency) ?: rate
-                    return DolarResult.Success(fullRate)
-                }
-            } catch (_: Exception) {
-                // Proveedor caído/tarde: siguiente de forma transparente.
-            }
+        val endpoint = if (currency == "EUR") ENDPOINT_DOLARAPI_EUR else ENDPOINT_DOLARAPI_USD
+        val rate = fetchDolarApi(endpoint)
+        if (rate != null) {
+            saveCache(currency, rate)
+            val fullRate = getCachedRate(currency) ?: rate
+            return DolarResult.Success(fullRate)
         }
-        val cached = getCachedRate(currency)
-        return DolarResult.Error("No se pudo conectar con ninguna fuente de tasa.", cached)
+        return DolarResult.Error(ERROR_MESSAGE, getCachedRate(currency))
     }
 
     fun getCachedRate(currency: String): DolarRate? {
         val promedio = readDouble(keyPromedio(currency)) ?: return null
         if (!isSane(promedio)) return null
         val fecha = prefs.getString(keyFecha(currency), "") ?: ""
-        val fuente = prefs.getString(keyFuente(currency), "caché") ?: "caché"
+        val fuente = prefs.getString(keyFuente(currency), FUENTE) ?: FUENTE
         val previousPromedio = readDouble(keyPrevious(currency))
         return DolarRate(promedio, fecha, fuente, previousPromedio)
     }
@@ -60,115 +53,38 @@ class DolarRepository(context: Context) {
     fun getLastSuccessfulFetchMillis(): Long =
         maxOf(getCacheTimeMillis("USD"), getCacheTimeMillis("EUR"))
 
-    private interface Provider {
-        val name: String
-        fun fetch(currency: String): DolarRate?
-    }
-
-    private val PROVIDERS: List<Provider> = listOf(
-        object : Provider {
-            override val name = "dolarapi.com"
-            override fun fetch(currency: String): DolarRate? {
-                val endpoint = if (currency == "EUR") ENDPOINT_DOLARAPI_EUR else ENDPOINT_DOLARAPI_USD
-                val json = httpGetJson(endpoint) ?: return null
-                if (!json.has("promedio")) return null
-                val value = json.getDouble("promedio")
-                if (!isSane(value)) return null
-                return DolarRate(
-                    promedio = value,
-                    fechaActualizacion = json.optString("fechaActualizacion"),
-                    fuente = name
-                )
-            }
-        },
-        object : Provider {
-            override val name = "pydolarve.dev"
-            override fun fetch(currency: String): DolarRate? {
-                val currUrl = if (currency == "EUR") "euro" else "dollar"
-                val json = httpGetJson("https://pydolarve.dev/api/v1/$currUrl/bcv") ?: return null
-                if (!json.has("price")) return null
-                val price = json.getDouble("price")
-                if (!isSane(price)) return null
-                val fecha = json.optString("last_update", "")
-                return DolarRate(price, fecha, name)
-            }
-        },
-        object : Provider {
-            override val name = "bcv.org.ve"
-            override fun fetch(currency: String): DolarRate? {
-                // Un solo fetch del HTML por ciclo de refresh (memo compartido
-                // entre USD y EUR): el scraping corre en paralelo y no debe
-                // descargar ~200KB dos veces.
-                val html = getBcvHtml() ?: return null
-                val currRegex = if (currency == "EUR") "(?:euro|EUR)" else "(?:d[oó]lar|USD)"
-
-                val regexes = listOf(
-                    Regex("""(?i)$currRegex[\s\S]{0,400}?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))"""),
-                    Regex("""(?i)id="[a-zA-Z]*$currRegex[a-zA-Z]*"[\s\S]{0,300}?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))"""),
-                    Regex("""(?i)(?:<strong|class="[^"]*(?:price|rate|amount|valor|tasa|cambio)[^"]*")[\s\S]{0,300}?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))""")
-                )
-                for (regex in regexes) {
-                    val match = regex.find(html) ?: continue
-                    val raw = match.groupValues[1]
-                    val normalized = normalizeNumber(raw) ?: continue
-                    if (isSane(normalized)) {
-                        return DolarRate(normalized, "", name)
-                    }
-                }
-                return null
-            }
-        }
-    )
-
-    private fun httpGetJson(url: String): JSONObject? {
-        val body = httpGetText(url) ?: return null
-        return JSONObject(body)
-    }
-
-    /** HTML de la página del BCV memoizado (una descarga por ciclo de refresh). */
-    private var bcvHtml: String? = null
-    private var bcvHtmlFetchedAt: Long = 0L
-
-    @Synchronized
-    private fun getBcvHtml(): String? {
-        val now = System.currentTimeMillis()
-        if (bcvHtml == null || now - bcvHtmlFetchedAt > BCV_HTML_MEMO_TTL_MS) {
-            bcvHtml = httpGetText(ENDPOINT_BCV)
-            bcvHtmlFetchedAt = now
-        }
-        return bcvHtml
-    }
-
-    private fun httpGetText(url: String): String? {
+    /**
+     * Descarga y parsea la respuesta de dolarapi.com: body mínimo (~200 bytes)
+     * leído directamente y parseado con [JSONObject]. Un solo GET por moneda;
+     * sanity check incluido.
+     */
+    private fun fetchDolarApi(endpoint: String): DolarRate? {
         var connection: HttpURLConnection? = null
         return try {
-            connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
-                setRequestProperty("Accept", "application/json, text/html, */*")
+                setRequestProperty("Accept", "application/json")
                 setRequestProperty("User-Agent", USER_AGENT)
                 instanceFollowRedirects = true
             }
             if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-            BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8)).use { it.readText() }
+            // Body mínimo (~200 bytes); lectura directa y parseo simple.
+            val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            val json = JSONObject(body)
+            if (!json.has("promedio")) return null
+            val value = json.getDouble("promedio")
+            if (!isSane(value)) return null
+            DolarRate(
+                promedio = value,
+                fechaActualizacion = json.optString("fechaActualizacion"),
+                fuente = FUENTE
+            )
         } catch (_: Exception) {
             null
         } finally {
             connection?.disconnect()
-        }
-    }
-
-    private fun normalizeNumber(raw: String): Double? {
-        return try {
-            val cleaned = when {
-                raw.contains('.') && raw.contains(',') -> raw.replace(".", "").replace(",", ".")
-                raw.contains(',') -> raw.replace(",", ".")
-                else -> raw
-            }
-            cleaned.toDouble()
-        } catch (_: Exception) {
-            null
         }
     }
 
@@ -212,12 +128,10 @@ class DolarRepository(context: Context) {
 
         private const val ENDPOINT_DOLARAPI_USD = "https://ve.dolarapi.com/v1/dolares/oficial"
         private const val ENDPOINT_DOLARAPI_EUR = "https://ve.dolarapi.com/v1/euros/oficial"
-        private const val ENDPOINT_BCV = "https://www.bcv.org.ve/"
-        private const val TIMEOUT_MS = 8000
+        private const val FUENTE = "dolarapi.com"
+        private const val TIMEOUT_MS = 6000
         private const val USER_AGENT = "TasaBCVCleam-App/4.5.0 (Android)"
-
-        /** TTL del memo del HTML del BCV: cubre un ciclo de refresh completo (USD+EUR). */
-        private const val BCV_HTML_MEMO_TTL_MS = 10_000L
+        private const val ERROR_MESSAGE = "No se pudo conectar con la fuente de tasas."
 
         private const val KEY_PROMEDIO = "promedio"
         private const val KEY_FECHA = "fecha"
