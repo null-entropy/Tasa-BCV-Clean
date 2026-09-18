@@ -92,7 +92,7 @@ fun ConfiguracionScreen() {
                     .pulseClick(pressedScale = 0.97f) {
                         if (pinSupported) tryPinWidget(context)
                     }
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
                 Column {
                     // Ícono a la IZQUIERDA (no centrado); título "Añadir Widget"
@@ -103,19 +103,21 @@ fun ConfiguracionScreen() {
                             contentDescription = null,
                             tint = colors.accent,
                             modifier = Modifier
-                                .size(20.dp)
+                                .size(22.dp)
                                 .align(Alignment.CenterStart)
                         )
                         Text(
                             text = stringResource(R.string.ajustes_widget_title),
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = colors.onSurface,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.align(Alignment.Center)
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
+                    // 12sp: con más palabras por línea el justificado queda
+                    // parejo, sin huecos desproporcionados entre palabras.
                     Text(
                         text = stringResource(R.string.ajustes_widget_description),
                         fontSize = 12.sp,
@@ -128,9 +130,9 @@ fun ConfiguracionScreen() {
                         // Fallback sin estado transitorio: si el launcher no
                         // soporta anclar (Android 7 o launchers limitados),
                         // los pasos manuales viven aquí desde el arranque.
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                         HorizontalDivider(color = colors.divider)
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                         Text(
                             text = stringResource(R.string.ajustes_widget_manual_steps),
                             fontSize = 11.sp,
@@ -154,7 +156,7 @@ fun ConfiguracionScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = 20.dp, vertical = 14.dp)
             ) {
                 Column {
                     InfoRow(
@@ -169,13 +171,13 @@ fun ConfiguracionScreen() {
                     HorizontalDivider(color = colors.divider)
                     Text(
                         text = stringResource(R.string.ajustes_info_lema),
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
                         color = colors.muted,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 10.dp)
+                            .padding(top = 12.dp)
                     )
                 }
             }
@@ -190,19 +192,19 @@ private fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 7.dp),
+            .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = colors.muted
         )
         Text(
             text = value,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = colors.onSurface
         )
