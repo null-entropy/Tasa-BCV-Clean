@@ -138,7 +138,7 @@ class DolarRepository(context: Context) {
         private const val ENDPOINT_DOLARAPI_EUR = "https://ve.dolarapi.com/v1/euros/oficial"
         private const val FUENTE = "dolarapi.com"
         private const val TIMEOUT_MS = 6000
-        private const val USER_AGENT = "TasaBCVCleam-App/4.6.6 (Android)"
+        private const val USER_AGENT = "TasaBCVCleam-App/4.6.7 (Android)"
         private const val ERROR_MESSAGE = "No se pudo conectar con la fuente de tasas."
 
         private const val KEY_PROMEDIO = "promedio"

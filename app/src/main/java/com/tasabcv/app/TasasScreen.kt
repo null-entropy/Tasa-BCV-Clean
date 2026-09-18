@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WifiOff
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -96,7 +95,6 @@ fun TasasScreen(viewModel: DolarViewModel) {
                 state = uiState.usdState,
                 isRefreshing = isRefreshing,
                 onCopy = { copyRate(context, it, "USD") },
-                onRetry = { viewModel.refresh() },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -109,7 +107,6 @@ fun TasasScreen(viewModel: DolarViewModel) {
                 state = uiState.eurState,
                 isRefreshing = isRefreshing,
                 onCopy = { copyRate(context, it, "EUR") },
-                onRetry = { viewModel.refresh() },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -194,7 +191,6 @@ fun CurrencyCard(
     state: SingleRateState,
     isRefreshing: Boolean,
     onCopy: (DolarRate) -> Unit,
-    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = appColors
@@ -330,26 +326,20 @@ fun CurrencyCard(
         HorizontalDivider(color = colors.divider)
         Spacer(Modifier.height(12.dp))
 
-        // Pie SIEMPRE presente. Pill de estado de conexión PERFECTAMENTE
-        // centrada cuando está sola (Loaded/Loading); a la izquierda con
-        // "Reintentar" a la derecha solo en Empty (evita solaparse en
-        // pantallas pequeñas).
+        // Pie SIEMPRE presente con la pill de estado de conexión
+        // PERFECTAMENTE centrada en TODOS los estados. El reintento vive en el
+        // círculo de refrescar de la barra superior (siempre visible) y en
+        // onAppResumed al volver a la app.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            contentAlignment = if (state is SingleRateState.Empty) Alignment.CenterStart else Alignment.Center
+            contentAlignment = Alignment.Center
         ) {
             StatusPill(
                 status = connectionStatus(state, isRefreshing),
                 flash = showFlash
             )
-            if (state is SingleRateState.Empty) {
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier.align(Alignment.CenterEnd)
-                ) { Text("Reintentar") }
-            }
         }
     }
 }
@@ -387,7 +377,7 @@ private fun connectionStatus(state: SingleRateState, isRefreshing: Boolean): Con
 /**
  * Pill del pie (donde vivían los botones copiar/compartir): HERMANA VISUAL del
  * chip del delta — fondo translúcido 10% + borde 28% + esquinas 16dp — con el
- * color según estado (verde en línea, rojo sin conexión, neutro conectando,
+ * color según estado (verde actualizado, rojo sin conexión, neutro conectando,
  * acento al destellar "Tasa copiada"). El color ES el estado: sin punto
  * separado. Al copiar destella y regresa sola al estado correspondiente.
  *
@@ -469,7 +459,7 @@ private fun StatusRow(status: ConnectionStatus) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         when (status) {
             ConnectionStatus.Online -> {
-                StatusText("En línea", color = colors.deltaDown)
+                StatusText("Actualizado", color = colors.deltaDown)
             }
             ConnectionStatus.Updating -> {
                 StatusText("Actualizando…", color = colors.muted)
@@ -480,12 +470,12 @@ private fun StatusRow(status: ConnectionStatus) {
             ConnectionStatus.OfflineCached -> {
                 StatusIcon(icon = Icons.Filled.WifiOff, tint = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.width(5.dp))
-                StatusText("Sin conexión · mostrando caché", color = MaterialTheme.colorScheme.error)
+                StatusText("Sin conexión; mostrando caché", color = MaterialTheme.colorScheme.error)
             }
             ConnectionStatus.Offline -> {
                 StatusIcon(icon = Icons.Filled.WifiOff, tint = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.width(5.dp))
-                StatusText("Sin conexión", color = MaterialTheme.colorScheme.error)
+                StatusText("Sin conexión; sin caché", color = MaterialTheme.colorScheme.error)
             }
         }
     }
