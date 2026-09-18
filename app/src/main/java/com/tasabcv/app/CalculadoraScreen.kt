@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -74,197 +73,184 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                 )
             )
     ) {
+        // SIN título: el contenido arranca directo para aprovechar el
+        // espacio vertical (coherente con Ajustes, que tampoco lo tiene).
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(horizontal = 24.dp, vertical = 16.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp, top = 8.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.screen_calculadora_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.onSurface
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                FloatingSegmentedButton(
-                    options = listOf(
-                        stringResource(R.string.currency_usd_title),
-                        stringResource(R.string.currency_eur_title)
-                    ),
-                    selectedIndex = if (isUsdBase) 0 else 1,
-                    onOptionSelected = { idx ->
-                        val newIsUsd = idx == 0
-                        if (isUsdBase != newIsUsd) {
-                            isUsdBase = newIsUsd
-                            baseText = ""
-                            bsText = ""
-                        }
+            FloatingSegmentedButton(
+                options = listOf(
+                    stringResource(R.string.currency_usd_title),
+                    stringResource(R.string.currency_eur_title)
+                ),
+                selectedIndex = if (isUsdBase) 0 else 1,
+                onOptionSelected = { idx ->
+                    val newIsUsd = idx == 0
+                    if (isUsdBase != newIsUsd) {
+                        isUsdBase = newIsUsd
+                        baseText = ""
+                        bsText = ""
                     }
-                )
+                }
+            )
 
-                Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
 
-                // Transición direccional tipo carrusel al alternar USD↔EUR:
-                // USD→EUR desliza a la izquierda; EUR→USD a la derecha.
-                // El selector de arriba NO se mueve (solo su indicador interior).
-                AnimatedContent(
-                    targetState = isUsdBase,
-                    transitionSpec = {
-                        val direction = if (targetState) {
-                            // EUR → USD: desplazar a la derecha.
-                            AnimatedContentTransitionScope.SlideDirection.Right
-                        } else {
-                            // USD → EUR: desplazar a la izquierda.
-                            AnimatedContentTransitionScope.SlideDirection.Left
-                        }
-                        (fadeIn(tween(200)) +
-                            slideIntoContainer(direction, animationSpec = MotionSpringIntOffset)) togetherWith
-                            (fadeOut(tween(160)) +
-                                slideOutOfContainer(direction, animationSpec = MotionSpringIntOffset))
-                    },
-                    label = "CalcCurrencySwitch"
-                ) { usdBase ->
-                    val activeState = if (usdBase) uiState.usdState else uiState.eurState
-                    val activeSymbol = if (usdBase) "USD" else "EUR"
+            // Transición direccional tipo carrusel al alternar USD↔EUR:
+            // USD→EUR desliza a la izquierda; EUR→USD a la derecha.
+            // El selector de arriba NO se mueve (solo su indicador interior).
+            AnimatedContent(
+                targetState = isUsdBase,
+                transitionSpec = {
+                    val direction = if (targetState) {
+                        // EUR → USD: desplazar a la derecha.
+                        AnimatedContentTransitionScope.SlideDirection.Right
+                    } else {
+                        // USD → EUR: desplazar a la izquierda.
+                        AnimatedContentTransitionScope.SlideDirection.Left
+                    }
+                    (fadeIn(tween(200)) +
+                        slideIntoContainer(direction, animationSpec = MotionSpringIntOffset)) togetherWith
+                        (fadeOut(tween(160)) +
+                            slideOutOfContainer(direction, animationSpec = MotionSpringIntOffset))
+                },
+                label = "CalcCurrencySwitch"
+            ) { usdBase ->
+                val activeState = if (usdBase) uiState.usdState else uiState.eurState
+                val activeSymbol = if (usdBase) "USD" else "EUR"
 
-                    when (activeState) {
-                        is SingleRateState.Loading -> {
-                            Text(
-                                text = "Cargando la tasa de $activeSymbol...",
-                                color = colors.muted,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                        is SingleRateState.Empty -> {
+                when (activeState) {
+                    is SingleRateState.Loading -> {
+                        Text(
+                            text = "Cargando la tasa de $activeSymbol...",
+                            color = colors.muted,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    is SingleRateState.Empty -> {
+                        Text(
+                            text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    is SingleRateState.Loaded -> {
+                        val activeTasa = activeState.rate.promedio
+                        if (activeTasa <= 0.0) {
                             Text(
                                 text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center
                             )
-                        }
-                        is SingleRateState.Loaded -> {
-                            val activeTasa = activeState.rate.promedio
-                            if (activeTasa <= 0.0) {
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+                                    .padding(16.dp)
+                            ) {
+                                val fieldSymbol = activeSymbol
                                 Text(
-                                    text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
-                                    color = MaterialTheme.colorScheme.error,
-                                    textAlign = TextAlign.Center
+                                    text = "Monto en $fieldSymbol",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.muted,
+                                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
                                 )
-                            } else {
-                                Column(
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    InsetCalcField(
+                                        value = baseText,
+                                        onValueChange = { newValue ->
+                                            val raw = sanitizeInput(newValue)
+                                            baseText = raw
+                                            val parsed = Format.parseUserInput(raw)
+                                            bsText = if (parsed != null && activeTasa > 0.0) {
+                                                formatDoubleToRaw(parsed * activeTasa)
+                                            } else {
+                                                ""
+                                            }
+                                        },
+                                        currencyVisual = currencyVisual,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    CopyIconButton {
+                                        copyToClipboard(
+                                            context,
+                                            formatCurrencyDisplay(baseText),
+                                            fieldSymbol
+                                        )
+                                    }
+                                }
+
+                                Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
-                                        .padding(16.dp)
+                                        .height(48.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    val fieldSymbol = activeSymbol
-                                    Text(
-                                        text = "Monto en $fieldSymbol",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = colors.muted,
-                                        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        InsetCalcField(
-                                            value = baseText,
-                                            onValueChange = { newValue ->
-                                                val raw = sanitizeInput(newValue)
-                                                baseText = raw
-                                                val parsed = Format.parseUserInput(raw)
-                                                bsText = if (parsed != null && activeTasa > 0.0) {
-                                                    formatDoubleToRaw(parsed * activeTasa)
-                                                } else {
-                                                    ""
-                                                }
-                                            },
-                                            currencyVisual = currencyVisual,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        CopyIconButton {
-                                            copyToClipboard(
-                                                context,
-                                                formatCurrencyDisplay(baseText),
-                                                fieldSymbol
-                                            )
-                                        }
-                                    }
-
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(48.dp),
+                                            .size(32.dp)
+                                            .neuRaised(colors, CircleShape, elevation = 4.dp)
+                                            .padding(4.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(32.dp)
-                                                .neuRaised(colors, CircleShape, elevation = 4.dp)
-                                                .padding(4.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                Icons.Filled.SwapVert,
-                                                contentDescription = null,
-                                                tint = colors.accent,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Text(
-                                        text = "Monto en Bolívares",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = colors.muted,
-                                        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        InsetCalcField(
-                                            value = bsText,
-                                            onValueChange = { newValue ->
-                                                val raw = sanitizeInput(newValue)
-                                                bsText = raw
-                                                val parsed = Format.parseUserInput(raw)
-                                                baseText = if (parsed != null && activeTasa > 0.0) {
-                                                    formatDoubleToRaw(parsed / activeTasa)
-                                                } else {
-                                                    ""
-                                                }
-                                            },
-                                            currencyVisual = currencyVisual,
-                                            modifier = Modifier.weight(1f)
+                                        Icon(
+                                            Icons.Filled.SwapVert,
+                                            contentDescription = null,
+                                            tint = colors.accent,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(Modifier.width(8.dp))
-                                        CopyIconButton {
-                                            copyToClipboard(
-                                                context,
-                                                formatCurrencyDisplay(bsText),
-                                                "Bs"
-                                            )
-                                        }
                                     }
-
-                                    Spacer(Modifier.height(32.dp))
-                                    Text(
-                                        text = "Referencia: 1 $fieldSymbol = ${Format.number(activeTasa)} Bs",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = colors.muted,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        textAlign = TextAlign.Center
-                                    )
                                 }
+
+                                Text(
+                                    text = "Monto en Bolívares",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.muted,
+                                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    InsetCalcField(
+                                        value = bsText,
+                                        onValueChange = { newValue ->
+                                            val raw = sanitizeInput(newValue)
+                                            bsText = raw
+                                            val parsed = Format.parseUserInput(raw)
+                                            baseText = if (parsed != null && activeTasa > 0.0) {
+                                                formatDoubleToRaw(parsed / activeTasa)
+                                            } else {
+                                                ""
+                                            }
+                                        },
+                                        currencyVisual = currencyVisual,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    CopyIconButton {
+                                        copyToClipboard(
+                                            context,
+                                            formatCurrencyDisplay(bsText),
+                                            "Bs"
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.height(32.dp))
+                                Text(
+                                    text = "Referencia: 1 $fieldSymbol = ${Format.number(activeTasa)} Bs",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = colors.muted,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
                     }

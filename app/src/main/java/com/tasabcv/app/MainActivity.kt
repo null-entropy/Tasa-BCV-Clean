@@ -14,14 +14,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -66,14 +67,25 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** Rutas de tabs en orden de la barra inferior: Ajustes · Tasas · Calculadora. */
+private val tabRoutes = listOf("ajustes", "tasas", "calculadora")
+
+/** Índice del tab para transiciones direccionales e indicador de la barra. */
+private fun routeIndex(route: String?): Int = when (route) {
+    "ajustes" -> 0
+    "calculadora" -> 2
+    else -> 1
+}
+
 @Composable
 fun MainScreen(viewModel: DolarViewModel) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: "tasas"
+    val tabAjustes = stringResource(R.string.nav_tab_ajustes)
     val tabTasas = stringResource(R.string.nav_tab_tasas)
     val tabCalculadora = stringResource(R.string.nav_tab_calculadora)
-    val tabLabels = listOf(tabTasas, tabCalculadora)
+    val tabLabels = listOf(tabAjustes, tabTasas, tabCalculadora)
 
     Scaffold(
         bottomBar = {
@@ -86,12 +98,12 @@ fun MainScreen(viewModel: DolarViewModel) {
                     // gestos/navegación del sistema.
                     .navigationBarsPadding()
             ) {
-                val selectedIndex = if (currentRoute == "calculadora") 1 else 0
+                val selectedIndex = routeIndex(currentRoute)
                 SlidingSegmentedControl(
                     options = tabLabels,
                     selectedIndex = selectedIndex,
                     onOptionSelected = { index ->
-                        val route = if (index == 0) "tasas" else "calculadora"
+                        val route = tabRoutes[index]
                         if (currentRoute != route) {
                             navController.navigate(route) {
                                 popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -107,7 +119,11 @@ fun MainScreen(viewModel: DolarViewModel) {
                 ) { label, _, contentColor ->
                     NavItemContent(
                         label = label,
-                        icon = if (label == tabTasas) Icons.Filled.AttachMoney else Icons.Filled.Calculate,
+                        icon = when (label) {
+                            tabAjustes -> Icons.Filled.Settings
+                            tabCalculadora -> Icons.Filled.Calculate
+                            else -> Icons.Filled.AttachMoney
+                        },
                         contentColor = contentColor
                     )
                 }
@@ -121,22 +137,27 @@ fun MainScreen(viewModel: DolarViewModel) {
                 .padding(innerPadding)
                 .fillMaxSize(),
             // Transición de tabs DIRECCIONAL y coherente con el indicador de
-            // la barra: la pantalla nueva entra deslizando desde el lado del
-            // tab elegido; la anterior se retira al lado opuesto. Muelles
-            // compartidos (§10): fluido, sin agrandamientos ni sobresaltos.
+            // la barra (3 tabs: Ajustes 0 · Tasas 1 · Calculadora 2): la
+            // pantalla nueva entra deslizando desde el lado del tab elegido
+            // (comparación de índices, no de ruta); la anterior se retira al
+            // lado opuesto. Muelles compartidos (§10): fluido, sin
+            // agrandamientos ni sobresaltos.
             enterTransition = {
-                val forward = targetState.destination.route != "tasas"
+                val forward = routeIndex(targetState.destination.route) >
+                    routeIndex(initialState.destination.route)
                 slideInHorizontally(MotionSpringIntOffset) { full ->
                     if (forward) full / 4 else -full / 4
                 } + fadeIn(animationSpec = tween(200))
             },
             exitTransition = {
-                val forward = targetState.destination.route != "tasas"
+                val forward = routeIndex(targetState.destination.route) >
+                    routeIndex(initialState.destination.route)
                 slideOutHorizontally(MotionSpringIntOffset) { full ->
                     if (forward) -full / 6 else full / 6
                 } + fadeOut(animationSpec = tween(160))
             }
         ) {
+            composable("ajustes") { ConfiguracionScreen() }
             composable("tasas") { TasasScreen(viewModel) }
             composable("calculadora") { CalculadoraScreen(viewModel) }
         }
