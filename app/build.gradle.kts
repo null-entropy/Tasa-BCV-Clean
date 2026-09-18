@@ -21,8 +21,8 @@ android {
         applicationId = "com.tasabcv.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 23
-        versionName = "4.6.3"
+        versionCode = 26
+        versionName = "4.6.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -135,7 +135,7 @@ dependencies {
 }
 
 // Compila release y copia el APK firmado a la carpeta Descargas del usuario,
-// renombrado con la versión (ej: TasaBCV-Cleam-v4.4.2.apk).
+// renombrado con la versión vigente.
 tasks.register("copyReleaseToDownloads") {
     dependsOn("assembleRelease")
     doLast {

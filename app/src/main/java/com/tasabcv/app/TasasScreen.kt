@@ -12,8 +12,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -152,17 +150,11 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
             modifier = Modifier.weight(1f)
         )
 
-        val refreshInteractionSource = remember { MutableInteractionSource() }
-        val refreshPressed by refreshInteractionSource.collectIsPressedAsState()
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .neuSurface(colors, CircleShape, refreshPressed, elevation = 6.dp)
-                .bounceClick(
-                    interactionSource = refreshInteractionSource,
-                    pressedScale = 0.85f,
-                    springSpec = MotionSpring
-                ) {
+                .neuRaised(colors, CircleShape, elevation = 6.dp)
+                .pulseClick(pressedScale = 0.85f) {
                     if (!isRefreshing) onRefresh()
                 },
             contentAlignment = Alignment.Center
@@ -187,9 +179,10 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
 
 /**
  * Ficha de divisa INTERACTIVA: la ficha entera actúa como botón que copia la
- * tasa. Al presionar se hunde físicamente ([neuSurface] + [bounceClick]) y
- * al soltar se copia el monto (Toast + destello en la pill del pie). Solo es
- * clickable con tasa cargada (Loaded); en Loading/Empty no hay nada que copiar.
+ * tasa. Al tocar hace un pulso one-shot ([pulseClick]: sin estado presionado
+ * persistente) y al soltar se copia el monto (Toast + destello en la pill del
+ * pie). Solo es presionable con tasa cargada (Loaded); en Loading/Empty queda
+ * elevada estática.
  *
  * Esqueleto unificado para TODOS los estados: título arriba, zona de tasa
  * expandida (weight 1f), divisor fijo y pie de estado abajo. El divisor y el
@@ -205,8 +198,6 @@ fun CurrencyCard(
     modifier: Modifier = Modifier
 ) {
     val colors = appColors
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
 
     // Destello "Tasa copiada" en la pill del pie: dura ~1.2 s y regresa sola
     // al estado de conexión correspondiente.
@@ -222,14 +213,12 @@ fun CurrencyCard(
 
     Column(
         modifier = modifier
-            .neuSurface(colors, RoundedCornerShape(32.dp), pressed, elevation = 12.dp)
+            .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
             .then(
                 if (state is SingleRateState.Loaded) {
-                    Modifier.bounceClick(
-                        interactionSource = interactionSource,
-                        pressedScale = 0.97f,
-                        springSpec = MotionSpring
-                    ) {
+                    // Pulso one-shot al tocar: sin estado presionado
+                    // persistente, nada que pueda quedar colgado.
+                    Modifier.pulseClick(pressedScale = 0.97f) {
                         onCopy(state.rate)
                         flashKey++
                     }

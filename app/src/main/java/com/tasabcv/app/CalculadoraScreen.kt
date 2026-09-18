@@ -7,8 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -320,18 +318,18 @@ private fun calcFieldColors() = TextFieldDefaults.colors(
     cursorColor = appColors.accent
 )
 
-/** Botón circular de copiar: elevado en reposo, hundido al presionar. */
+/** Botón circular de copiar: pulso one-shot al tocar (sin estado persistente). */
 @Composable
 private fun CopyIconButton(onClick: () -> Unit) {
     val colors = appColors
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
 
     Box(
         modifier = Modifier
             .size(40.dp)
-            .neuSurface(colors, CircleShape, pressed, elevation = 5.dp)
-            .bounceClick(interactionSource = interaction, onClick = onClick),
+            .neuRaised(colors, CircleShape, elevation = 5.dp)
+            .pulseClick {
+                onClick()
+            },
         contentAlignment = Alignment.Center
     ) {
         Icon(

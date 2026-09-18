@@ -42,7 +42,7 @@ class DolarViewModel(application: Application) : AndroidViewModel(application) {
     private var hasLoadedOnce = false
 
     /**
-     * Primer abrir (v4.3.1): muestra la caché al instante (sin pantalla vacía) y
+     * Primer abrir: muestra la caché al instante (sin pantalla vacía) y
      * refresca en background SOLO si la caché tiene más de 30 min o nunca hubo
      * fetch. Con caché reciente no se golpea la red: el BCV publica un valor
      * por día hábil, no tiene sentido re-descargar si abres la app a los 5 min.
@@ -73,7 +73,7 @@ class DolarViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Sincronización total (v4.3.1): las tasas visibles se MANTIENEN (caché o
+     * Sincronización total: las tasas visibles se MANTIENEN (caché o
      * dato fresco) mientras USD y EUR se descargan en paralelo; los estados se
      * actualizan JUNTOS solo cuando ambas terminaron. El flag `isRefreshing`
      * (independiente del estado mostrado) alimenta el botón de actualizar y

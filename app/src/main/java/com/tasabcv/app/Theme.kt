@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.core.view.WindowCompat
 
 // ---------------------------------------------------------------------------
-// Paleta "Grafito" (v4.5.0): identidad monocroma, sin azul.
+// Paleta "Grafito": identidad monocroma, sin azul.
 //   Claro  -> blancos y grises claros; acento casi negro.
 //   Oscuro -> negros y grises reales; acento casi blanco.
 // El delta (subida/bajada) se adapta por tema: clarito en claro, oscuro en

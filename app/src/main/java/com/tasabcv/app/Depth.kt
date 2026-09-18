@@ -11,14 +11,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // ---------------------------------------------------------------------------
-// Motor de relieve "Grafito" (v4.5.0): neumorfismo pronunciado SIN blur.
+// Motor de relieve "Grafito": neumorfismo pronunciado SIN blur.
 // Todo el 3D se resuelve con degradados diagonales + biseles (borde con
 // degradado luz->sombra) + sombras de elevación estándar: costo GPU mínimo.
 //
 //   neuRaised  -> elemento elevado: luz arriba-izquierda, sombra abajo-derecha.
+//                 Superficies SIEMPRE estáticas en su forma: la respuesta al
+//                 toque la pone pulseClick (pulso one-shot de escala), no el
+//                 relieve (sin estados que puedan quedar colgados).
 //   neuInset   -> elemento hundido: bisel invertido (pozo), sin sombra.
-//   neuSurface -> alterna elevado/hundido según `pressed` (botones que se
-//                 hunden de verdad al presionar).
 // ---------------------------------------------------------------------------
 
 /** Degradado diagonal de las superficies elevadas (luz -> sombra). */
@@ -52,12 +53,3 @@ fun Modifier.neuInset(colors: AppColors, shape: Shape): Modifier =
     this
         .background(insetBrush(colors), shape)
         .border(insetBorder(colors), shape)
-
-/**
- * Superficie interactiva: elevada en reposo, hundida al presionar. El swap de
- * bisel + el scale de [bounceClick] dan la sensación física de "pulsar".
- * Uso también en superficies grandes (fichas de tasas): costo por presión =
- * un solo intercambio de modificadores (sin trabajo de dibujo por frame).
- */
-fun Modifier.neuSurface(colors: AppColors, shape: Shape, pressed: Boolean, elevation: Dp = 8.dp): Modifier =
-    if (pressed) neuInset(colors, shape) else neuRaised(colors, shape, elevation)

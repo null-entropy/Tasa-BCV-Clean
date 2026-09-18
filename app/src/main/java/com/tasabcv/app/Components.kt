@@ -1,13 +1,13 @@
 package com.tasabcv.app
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -22,62 +22,79 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * Efecto de presión 3D ligero (escala con spring) + feedback háptico sutil al
- * presionar (tick tipo TextHandleMove: discreto, premium, sin vibración brusca).
+ * Pulso de presión ONE-SHOT: al tocar, el elemento hace una pequeña
+ * animación ACOTADA — encoge hasta [pressedScale] y regresa SIEMPRE a 1f exacto
+ * (dos animateTo con el muelle compartido). NO existe estado "presionado"
+ * persistente que apagar: la familia de bugs b/414319919 y b/186223077 de
+ * foundation 1.6.8 (toques rápidos, presionar+arrastrar) ya no tiene superficie
+ * sobre la que colgarse — el peor caso posible es que el pulso se reinicie,
+ * nunca que quede congelado. Si el nodo se elimina, un nuevo nodo arranca en
+ * 1f exacto (auto-reparación).
  *
- * @param pressedScale escala al presionar (0.94f = hundimiento sutil por defecto).
- * @param springSpec curva del movimiento; siempre un muelle compartido (v4.6.2).
+ * Detección del tap con [Modifier.clickable] estándar (cancelación por scroll
+ * y arrastre correcta por diseño, semántica de accesibilidad incluida). Su
+ * fuente de interacciones NO se observa (indication = null): aunque sus
+ * emisiones internas fallaran, el visual NO depende de ellas.
+ *
+ * Cero trabajo por frame: [graphicsLayer] con lambda lee el valor solo al
+ * dibujar (sin recomposiciones durante el pulso); costo nulo en reposo.
+ *
+ * @param pressedScale escala mínima del pulso (0.94f por defecto).
+ * @param springSpec muelle compartido; siempre [MotionSpring].
  */
-fun Modifier.bounceClick(
-    interactionSource: MutableInteractionSource,
+fun Modifier.pulseClick(
     pressedScale: Float = 0.94f,
     springSpec: SpringSpec<Float> = MotionSpring,
     onClick: () -> Unit
 ): Modifier = composed {
-    val isPressed by interactionSource.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
-
-    LaunchedEffect(isPressed) {
-        if (isPressed) {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        }
-    }
-
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) pressedScale else 1f,
-        animationSpec = springSpec,
-        label = "BounceScale"
-    )
+    val currentOnClick by rememberUpdatedState(onClick)
+    val pulse = remember { Animatable(1f) }
+    val scope = rememberCoroutineScope()
 
     this
-        .scale(scale)
+        .graphicsLayer {
+            scaleX = pulse.value
+            scaleY = pulse.value
+        }
         .clickable(
-            interactionSource = interactionSource,
-            indication = null,
-            onClick = onClick
-        )
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null
+        ) {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            // Animatable serializa las animaciones: un nuevo pulso cancela el
+            // anterior y arranca desde el valor actual; toda secuencia termina
+            // en exactamente 1f.
+            scope.launch {
+                pulse.animateTo(pressedScale, springSpec)
+                pulse.animateTo(1f, springSpec)
+            }
+            currentOnClick()
+        }
 }
 
 // ---------------------------------------------------------------------------
-// Lenguaje de movimiento ÚNICO (v4.6.2): toda la app comparte estos muelles.
+// Lenguaje de movimiento ÚNICO: toda la app comparte estos muelles.
 //   MotionSpring  -> TODO movimiento (indicador deslizante, carrusel USD↔EUR,
 //                    transición de tabs, odómetro, tamaño del valor, presiones):
 //                    fluido, llega rápido y asienta sin sobresalto (damping
@@ -92,7 +109,7 @@ val MotionSpringIntOffset: SpringSpec<IntOffset> = spring(dampingRatio = 0.9f, s
 val PopSpring: SpringSpec<Float> = spring(dampingRatio = 0.75f, stiffness = 420f)
 
 /**
- * Control segmentado neumorfista (v4.5.0): el contenedor es un HUECO hundido
+ * Control segmentado neumorfista: el contenedor es un HUECO hundido
  * (bisel invertido, sin sombra) y el indicador es una PÍLDORA elevada que se
  * desliza con spring (degradado + bisel + sombra proyectada). Reutilizado por
  * la barra inferior y el selector USD/EUR: un solo lenguaje de forma/movimiento.
@@ -158,7 +175,6 @@ fun SlidingSegmentedControl(
             Row(modifier = Modifier.fillMaxSize()) {
                 options.forEachIndexed { index, text ->
                     val isSelected = index == selectedIndex
-                    val interactionSource = remember { MutableInteractionSource() }
 
                     val contentColor by animateColorAsState(
                         targetValue = if (isSelected) colors.accent else colors.muted,
@@ -170,7 +186,7 @@ fun SlidingSegmentedControl(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .bounceClick(interactionSource) { onOptionSelected(index) },
+                            .pulseClick { onOptionSelected(index) },
                         contentAlignment = Alignment.Center
                     ) {
                         content(text, isSelected, contentColor)

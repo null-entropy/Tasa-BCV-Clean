@@ -47,7 +47,7 @@ Compose collectAsState() → DolarViewModel → DolarRepository (dolarapi.com + 
 - **Caché** `dolar_bcv_prefs`: `promedio_*`, `fecha_*`, `fuente_*`, `cache_time_*`, `previous_*` + `widget_currency`. Números como String (tolerante Float legacy). Sanity `(0,1_000_000]`. Delta local `sameRate` 0.00005, solo en Tasas.
 
 ## 5. Fuente de datos
-El BCV no tiene API pública; la app usa **dolarapi.com como proveedor único** (antes había una cadena de 3 proveedores: pydolarve.dev y bcv.org.ve fueron eliminados de forma profunda por estar caído el primero y ser frágil el scraping del segundo). Timeout **6 s por moneda**. Constantes en `DolarRepository.companion`; `USER_AGENT = "TasaBCVCleam-App/4.6.3 (Android)"`.
+El BCV no tiene API pública; la app usa **dolarapi.com como proveedor único** (antes había una cadena de 3 proveedores: pydolarve.dev y bcv.org.ve fueron eliminados de forma profunda por estar caído el primero y ser frágil el scraping del segundo). Timeout **6 s por moneda**. Constantes en `DolarRepository.companion`; `USER_AGENT = "TasaBCVCleam-App/4.6.6 (Android)"`.
 
 | Moneda | Endpoint | Valor | Fecha |
 | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ Reglas: 1) Solo HTTPS (`usesCleartextTraffic="false"`). 2) Fin de semana: el pro
 ## 6. Build y entrega
 > Solo compilar / `copyReleaseToDownloads` si el usuario lo pide con palabras claras. Nunca asumir `versionName`/`versionCode`: si no los dio explícitos, preguntar siempre antes de compilar.
 
-Requisitos: JDK 17, SDK `C:\Android\Sdk` (platform-tools, platforms;android-34, build-tools;34.0.0). Sin Android Studio. Gotcha Windows: ruta no-ASCII falla AGP → ya resuelto `android.overridePathCheck=true` + `local.properties` barras normales.
+Requisitos: JDK 17, SDK ÚNICO del proyecto `C:\Android\Sdk` (platform-tools, platforms;android-34, build-tools;34.0.0; licenses y cmdline-tools incluidos). **STUDIO-FREE:** prohibido abrir el proyecto con Android Studio; no debe existir `.idea/` ni artefactos de Studio (si reaparecen, borrarlos; `.gitignore` los excluye). Gradle usa `sdk.dir` de `local.properties` → SIEMPRE `C:\Android\Sdk` (barras normales). Gotcha Windows: ruta no-ASCII falla AGP → ya resuelto `android.overridePathCheck=true`.
 
 ```powershell
 cd "C:\Users\Admin\Proyectos\Tasa BCV - Cleam"
@@ -74,24 +74,25 @@ Compila `assembleRelease` (minify+shrinkResources+firma) y copia a `C:\Users\Adm
 
 Nunca perder/regenerar/renombrar (identidad legacy `Dolar BCV` intencional). Nunca commitear `keystore/` ni `keystore.properties`. `storeFile` relativo a raíz (`rootProject.file(...)`). Verificar:
 ```bash
-"C:/Android/Sdk/build-tools/34.0.0/apksigner.bat" verify --verbose --print-certs "$env:USERPROFILE\Downloads\TasaBCV-Cleam-v4.6.3.apk"
+"C:/Android/Sdk/build-tools/34.0.0/apksigner.bat" verify --verbose --print-certs "$env:USERPROFILE\Downloads\TasaBCV-Cleam-v<version>.apk"
 # debe decir Verifies + CN=Dolar BCV
 ```
 
 ## 8. Identidad
-`applicationId com.tasabcv.app` (ex `com.dolarbcv.app` v4.0.0), `versionCode 23 / versionName 4.6.3` en `app/build.gradle.kts` (cada release requiere `versionCode` mayor), nombre `Tasa BCV - Cleam`, permisos solo `INTERNET` + `ACCESS_NETWORK_STATE`.
+`applicationId com.tasabcv.app` (ex `com.dolarbcv.app` v4.0.0), `versionCode 26 / versionName 4.6.6` en `app/build.gradle.kts` (cada release requiere `versionCode` mayor), nombre `Tasa BCV - Cleam`, permisos solo `INTERNET` + `ACCESS_NETWORK_STATE`.
 
 ## 9. Widget
 `DolarWidgetProvider` RemoteViews clásico. `widget_dolar.xml` + `dolar_widget_info.xml` (2x2, 30min). **Solo lee caché, no hace HTTP.** Toggle `USD↔EUR` broadcast `com.tasabcv.app.TOGGLE_CURRENCY`, tap abre `MainActivity`. Sin delta, `RelativeSizeSpan` 0.5x para `Bs`. `refreshAll()` se llama desde el ViewModel tras cada fetch exitoso. Layout: chip de moneda arriba, valor grande (`weight 3`, autoSize 18–44sp) centrado, fecha al pie.
 
 ## 10. UI y quirks
 - **Buenas prácticas móvil:** Compose eficiente (evitar recomposiciones, `remember`, estado mínimo), 60fps y APK ligero. Subir nivel visual sin romper minimalismo ni rendimiento.
-- **Edge-to-edge (v4.3.1):** `enableEdgeToEdge()` en `MainActivity`; bottom bar con `navigationBarsPadding()`. Orientación NO bloqueada (el manifest usa `configChanges`). Tasas reparte el alto con `weight`; Calculadora usa `verticalScroll`. El splash XML (`themes.xml`) define `statusBarColor`/`navigationBarColor`; en runtime las barras quedan transparentes y `Theme.kt` solo controla la apariencia de los íconos.
+- **Edge-to-edge:** `enableEdgeToEdge()` en `MainActivity`; bottom bar con `navigationBarsPadding()`. Orientación NO bloqueada (el manifest usa `configChanges`). Tasas reparte el alto con `weight`; Calculadora usa `verticalScroll`. El splash XML (`themes.xml`) define `statusBarColor`/`navigationBarColor`; en runtime las barras quedan transparentes y `Theme.kt` solo controla la apariencia de los íconos.
 - **Lint:** `abortOnError=false` (advierte, no bloquea); desactivados `UnusedResources`, `IconMissingDensityFolder`, `Typos`, `Overdraw` (`app/build.gradle.kts`).
-- **Grafito monocromo** `Theme.kt` (`AppColors`/`LocalAppColors`, no dynamic color) + neumorfismo `Depth.kt` (`neuRaised/neuInset/neuSurface` sin blur). `bounceClick` + haptics sutil (`TextHandleMove`) + muelles compartidos (`MotionSpring`/`PopSpring`, ver bullet propio) + `SlidingSegmentedControl` (esquinas 32dp).
-- **Odómetro por dígitos (v4.4.7):** 12 slots anclados a la derecha; cada carácter rueda hacia arriba si sube, hacia abajo si baja, con fade y clip por slot. Delta ▲/▼ en chip, colores adaptados por tema.
-- **Lenguaje de movimiento ÚNICO (v4.6.2):** TODO movimiento de la app usa los muelles compartidos de `Components.kt`: `MotionSpring` (Float e IntOffset, damping 0.9 / stiffness 350 — indicador deslizante, carrusel USD↔EUR, transición de tabs, odómetro, tamaño del valor, presiones) y `PopSpring` (damping 0.75 / stiffness 420 — entradas pop: delta 0.55→1, mensajes de pill 0.85→1). Los fades acompañan con tweens cortos (140–200 ms). Prohibido añadir springs ad-hoc fuera de este par (§1). El indicador del segmented asienta SIEMPRE dentro de su burbuja (sin overshoot visible) y las transiciones de tabs/selector son direccionales (coherentes entre sí).
-- **Fichas tasas (v4.6.2):** sin botones copiar/compartir (compartir eliminado de raíz; `shareRate` ya no existe). Tocar la ficha copia la tasa: hundimiento binario `neuSurface` + `bounceClick` 0.97f (patrón probado de los botones; la interpolación continua por frame provocaba ANR en el dispositivo y fue eliminada de raíz con `neuPressable` en v4.6.0) + pill del pie destella "Tasa copiada" ~1.2 s (único `AnimatedContent` con los muelles compartidos; cero trabajo si el mensaje no cambia). Pie: pill PERFECTAMENTE centrada cuando está sola (Loaded/Loading); pill izquierda + Reintentar derecha solo en Empty. Pill estilo chip del delta: fondo translúcido 10% + borde 28% + esquinas 16dp, color = estado (verde en línea, rojo sin conexión, neutro conectando/actualizando, acento al copiar); SIN punto separado (el color comunica). Delta en slot fijo 36dp: chip ▲/▼ real con pop de `PopSpring` al entrar, o ficha fantasma "—" con idénticas medidas cuando no hay `previous_*` con qué comparar (nunca queda hueco).
+- **Grafito monocromo** `Theme.kt` (`AppColors`/`LocalAppColors`, no dynamic color) + neumorfismo `Depth.kt` (`neuRaised/neuInset` sin blur; `neuSurface` eliminado). `pulseClick` + háptica sutil (`TextHandleMove`) + muelles compartidos (`MotionSpring`/`PopSpring`, ver bullet propio) + `SlidingSegmentedControl` (esquinas 32dp).
+- **pulseClick:** respuesta al toque en TODOS los presionables (fichas, refrescar, copiar, barra inferior, selector). Historia: 3 intentos con estado "presionado" persistente fallaron en el dispositivo (clickable+fuente, pointerInput+fuente, pointerInput+estado local con finally) — familia de bugs b/414319919/b/186223077 de foundation 1.6.8; el estado colgado reproducía "ficha hundida hasta el próximo toque". Solución: eliminar el estado persistente DE RAÍZ. `pulseClick`: pulso ONE-SHOT al tocar (Animatable 1 → pressedScale → 1 exacto, 2 `animateTo` con `MotionSpring`); detección con `Modifier.clickable` estándar (indication = null; su fuente NO se observa); `graphicsLayer` lambda = cero recomposiciones y cero trabajo en reposo; superficies SIEMPRE elevadas (`neuRaised`), nunca cambian de forma. Imposible por diseño que el visual quede colgado: el valor siempre converge a 1f.
+- **Odómetro por dígitos:** 12 slots anclados a la derecha; cada carácter rueda hacia arriba si sube, hacia abajo si baja, con fade y clip por slot. Delta ▲/▼ en chip, colores adaptados por tema.
+- **Lenguaje de movimiento ÚNICO:** TODO movimiento de la app usa los muelles compartidos de `Components.kt`: `MotionSpring` (Float e IntOffset, damping 0.9 / stiffness 350 — indicador deslizante, carrusel USD↔EUR, transición de tabs, odómetro, tamaño del valor, presiones) y `PopSpring` (damping 0.75 / stiffness 420 — entradas pop: delta 0.55→1, mensajes de pill 0.85→1). Los fades acompañan con tweens cortos (140–200 ms). Prohibido añadir springs ad-hoc fuera de este par (§1). El indicador del segmented asienta SIEMPRE dentro de su burbuja (sin overshoot visible) y las transiciones de tabs/selector son direccionales (coherentes entre sí).
+- **Fichas tasas:** sin botones copiar/compartir (compartir eliminado de raíz; `shareRate` ya no existe). Tocar la ficha copia la tasa: `pulseClick` 0.97f (pulso one-shot de escala con superficie siempre elevada; el hundimiento persistente se eliminó por quedarse colgado en el dispositivo) + pill del pie destella "Tasa copiada" ~1.2 s (único `AnimatedContent` con los muelles compartidos; cero trabajo si el mensaje no cambia). Pie: pill PERFECTAMENTE centrada cuando está sola (Loaded/Loading); pill izquierda + Reintentar derecha solo en Empty. Pill estilo chip del delta: fondo translúcido 10% + borde 28% + esquinas 16dp, color = estado (verde en línea, rojo sin conexión, neutro conectando/actualizando, acento al copiar); SIN punto separado (el color comunica). Delta en slot fijo 36dp: chip ▲/▼ real con pop de `PopSpring` al entrar, o ficha fantasma "—" con idénticas medidas cuando no hay `previous_*` con qué comparar (nunca queda hueco).
 - **Calculadora:** `.`=miles visual, `,` decimal (2 dec). `CurrencyVisualTransformation` + `sanitizeInput()`. Selector USD/EUR limpia campos. Cambio de moneda con carrusel horizontal.
 - ProGuard mantiene el modelo (`DolarRate`, `DolarResult`, `DolarUiState`, `SingleRateState` y sus `$*`), `MainActivity`, `DolarWidgetProvider`, `kotlin.Metadata`, `org.json`. Si añades reflexión → añade reglas.
 
@@ -113,12 +114,12 @@ Nunca perder/regenerar/renombrar (identidad legacy `Dolar BCV` intencional). Nun
 
 ## 13. Checklist release
 - [ ] Loading/Loaded/Empty + caché instantánea + pill de estado correcta (en línea/offline/caché)
-- [ ] Ficha: tap copia la tasa (hundimiento 3D + destello); sin botones copiar/compartir
+- [ ] Ficha: tap copia la tasa (pulso one-shot + destello); sin botones copiar/compartir
 - [ ] Delta siempre visible: chip ▲/▼ real o fantasma "—" (sin hueco)
 - [ ] Odómetro por dígitos sin cortes ni superposiciones
 - [ ] Calculadora no crashea con vacío/letras, formato VE correcto
 - [ ] Widget sin delta: tasa y fecha armónicas; toggle USD/EUR funciona
-- [ ] `copyReleaseToDownloads` BUILD SUCCESSFUL + APK firmado `CN=Dolar BCV`
+- [ ] `copyReleaseToDownloads` BUILD SUCCESSFUL + APK firmado `CN=Dolar BCV` (verificar la versión del APK en el comando apksigner)
 - [ ] No se subió keystore/properties, versionCode incrementado, ProGuard ok
 - [ ] `AGENTS.md` sigue fiel al código (versiones, archivos, caché, proveedor)
 
