@@ -156,7 +156,7 @@ fun ConfiguracionScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
-                    .padding(horizontal = 20.dp, vertical = 14.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Column {
                     InfoRow(
@@ -169,15 +169,23 @@ fun ConfiguracionScreen() {
                         value = DolarRepository.FUENTE
                     )
                     HorizontalDivider(color = colors.divider)
+                    InfoRow(
+                        label = stringResource(R.string.ajustes_info_creador),
+                        value = stringResource(R.string.ajustes_info_creador_nombre)
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    // 10sp: con el texto del lema (largo) cada línea se llena
+                    // de palabras y el justificado no estira los espacios de
+                    // forma desproporcionada.
                     Text(
                         text = stringResource(R.string.ajustes_info_lema),
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
+                        fontSize = 10.sp,
+                        lineHeight = 15.sp,
                         color = colors.muted,
-                        textAlign = TextAlign.Center,
+                        textAlign = TextAlign.Justify,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp)
+                            .padding(top = 10.dp)
                     )
                 }
             }
@@ -192,19 +200,19 @@ private fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp),
+            .padding(vertical = 7.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
-            fontSize = 14.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = colors.muted
         )
         Text(
             text = value,
-            fontSize = 14.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = colors.onSurface
         )

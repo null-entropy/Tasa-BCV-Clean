@@ -17,5 +17,7 @@
     <string name="ajustes_widget_manual_steps">Si tu teléfono no lo permite automáticamente: mantén presionado el escritorio, toca «Widgets», busca Tasa BCV - Cleam y arrástralo a la pantalla.</string>
     <string name="ajustes_info_version">Versión</string>
     <string name="ajustes_info_fuente">Fuente</string>
-    <string name="ajustes_info_lema">Robusta, limpia, minimalista, ligera, optimizada, rápida y sin anuncios.</string>
+    <string name="ajustes_info_creador">Creador</string>
+    <string name="ajustes_info_creador_nombre">Sebastián Viloria</string>
+    <string name="ajustes_info_lema">El lema de la aplicación es ser robusta, minimalista, ligera, rápida, optimizada y sin anuncios</string>
 </resources>

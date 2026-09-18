@@ -21,8 +21,8 @@ android {
         applicationId = "com.tasabcv.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 31
-        versionName = "4.7.1"
+        versionCode = 33
+        versionName = "4.7.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
