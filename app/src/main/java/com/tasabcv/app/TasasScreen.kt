@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -503,8 +505,8 @@ private fun StatusIcon(icon: ImageVector, tint: Color) {
 }
 
 /**
- * Slot del delta con altura fija SIEMPRE ocupado: chip ▲/▼ con la diferencia
- * cuando hay valor previo distinto, o ficha fantasma ("—") neutra con las
+ * Slot del delta con altura fija SIEMPRE ocupado: chip de flecha de tendencia
+ * (subida/bajada) con la diferencia cuando hay valor previo distinto, o ficha fantasma ("—") neutra con las
  * MISMAS medidas cuando no hay dato con qué comparar. Nunca queda un hueco.
  * La animación solo corre durante la transición: en reposo el chip es
  * estático (cero costo continuo).
@@ -544,8 +546,9 @@ private fun DeltaSlot(current: Double, previous: Double?) {
 }
 
 /**
- * Chip real de variación ▲/▼: rojo para subida, verde para bajada, colores
- * adaptados por tema (claritos en claro, oscuros en oscuro).
+ * Chip real de variación: flecha de tendencia (gráfica) + diferencia.
+ * Rojo para subida, verde para bajada, colores adaptados por tema
+ * (claritos en claro, oscuros en oscuro).
  */
 @Composable
 private fun DeltaChip(current: Double, previous: Double) {
@@ -553,20 +556,31 @@ private fun DeltaChip(current: Double, previous: Double) {
     val delta = current - previous
     val isPositive = delta > 0
     val color = if (isPositive) colors.deltaUp else colors.deltaDown
-    val icon = if (isPositive) "▲" else "▼"
+    val trendIcon = if (isPositive) Icons.Filled.TrendingUp else Icons.Filled.TrendingDown
     val sign = if (isPositive) "+" else "-"
     Box(
         modifier = Modifier
             .background(color.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
             .border(1.dp, color.copy(alpha = 0.28f), RoundedCornerShape(16.dp))
     ) {
-        Text(
-            text = "$icon $sign${Format.number(abs(delta))} Bs",
-            color = color,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
-        )
+        ) {
+            Icon(
+                trendIcon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = color
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "$sign${Format.number(abs(delta))} Bs",
+                color = color,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 

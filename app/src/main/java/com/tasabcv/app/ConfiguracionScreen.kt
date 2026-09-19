@@ -174,15 +174,14 @@ fun ConfiguracionScreen() {
                         value = stringResource(R.string.ajustes_info_creador_nombre)
                     )
                     HorizontalDivider(color = colors.divider)
-                    // 10sp: con el texto del lema (largo) cada línea se llena
-                    // de palabras y el justificado no estira los espacios de
-                    // forma desproporcionada.
+                    // 11sp centrado: el lema cierra la ficha como un texto
+                    // armonioso, sin estirar espacios entre palabras.
                     Text(
                         text = stringResource(R.string.ajustes_info_lema),
-                        fontSize = 10.sp,
-                        lineHeight = 15.sp,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
                         color = colors.muted,
-                        textAlign = TextAlign.Justify,
+                        textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 10.dp)
