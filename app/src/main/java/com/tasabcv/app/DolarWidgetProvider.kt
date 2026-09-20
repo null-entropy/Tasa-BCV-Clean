@@ -6,14 +6,18 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.RelativeSizeSpan
 import android.widget.RemoteViews
+import androidx.compose.ui.graphics.toArgb
 
 /**
  * Widget de pantalla de inicio: lee caché (offline), toggle USD/EUR, abre la app.
  * No hace red: un valor oficial por día hábil; la app principal refresca el caché.
+ * Se tiñe con la variante elegida en Ajustes (ThemeStore) según el modo del
+ * sistema: cristal translúcido sobre el fondo de pantalla.
  */
 class DolarWidgetProvider : AppWidgetProvider() {
 
@@ -44,7 +48,28 @@ class DolarWidgetProvider : AppWidgetProvider() {
         val currency = prefs.getString(DolarRepository.KEY_WIDGET_CURRENCY, "USD") ?: "USD"
         val rate = repo.getCachedRate(currency)
 
+        // Tema activo: variante persistida en Ajustes + modo del sistema.
+        val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val palette = ThemeStore.paletteFor(ThemeStore.variant, isDark)
+
         val views = RemoteViews(context.packageName, R.layout.widget_dolar)
+        // Cristal del widget: fondo translúcido según tema + chip del modo.
+        views.setInt(
+            R.id.widget_root,
+            "setBackgroundResource",
+            widgetBackgroundRes(ThemeStore.variant, isDark)
+        )
+        views.setInt(
+            R.id.widget_currency_chip,
+            "setBackgroundResource",
+            if (isDark) R.drawable.widget_currency_chip else R.drawable.widget_chip_light
+        )
+        // Textos: color de la paleta activa (acento / superficie / apagado).
+        views.setTextColor(R.id.widget_title, palette.accent.toArgb())
+        views.setTextColor(R.id.widget_value, palette.onSurface.toArgb())
+        views.setTextColor(R.id.widget_date, palette.muted.toArgb())
+
         if (rate != null) {
             val formatted = Format.number(rate.promedio)
             // "Bs" más pequeño en el MISMO texto (RelativeSizeSpan es parcelable,
@@ -122,4 +147,16 @@ class DolarWidgetProvider : AppWidgetProvider() {
             }
         }
     }
+}
+
+/** Fondo de cristal del widget según variante de tema y modo del sistema. */
+private fun widgetBackgroundRes(variant: ThemeVariant, isDark: Boolean): Int = when (variant) {
+    ThemeVariant.SISTEMA ->
+        if (isDark) R.drawable.widget_background else R.drawable.widget_bg_grafito_light
+    ThemeVariant.AZUL ->
+        if (isDark) R.drawable.widget_bg_azul_dark else R.drawable.widget_bg_azul_light
+    ThemeVariant.VERDE ->
+        if (isDark) R.drawable.widget_bg_verde_dark else R.drawable.widget_bg_verde_light
+    ThemeVariant.ROSADO ->
+        if (isDark) R.drawable.widget_bg_rosado_dark else R.drawable.widget_bg_rosado_light
 }

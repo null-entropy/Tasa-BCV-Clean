@@ -140,7 +140,7 @@ class DolarRepository(context: Context) {
         /** Fuente de datos visible en la ficha de información de Ajustes. */
         const val FUENTE = "dolarapi.com"
         private const val TIMEOUT_MS = 6000
-        private const val USER_AGENT = "TasaBCVCleam-App/4.7.4 (Android)"
+        private const val USER_AGENT = "TasaBCVCleam-App/4.8.0 (Android)"
         private const val ERROR_MESSAGE = "No se pudo conectar con la fuente de tasas."
 
         private const val KEY_PROMEDIO = "promedio"

@@ -53,6 +53,8 @@ class MainActivity : ComponentActivity() {
         // Android 15, que fuerza este modo.
         enableEdgeToEdge()
         viewModel.loadOnFirstOpen()
+        // Tema persistido ANTES de componer: la primera paleta sale sin salto.
+        ThemeStore.load(this)
 
         setContent {
             DolarBCVTheme {

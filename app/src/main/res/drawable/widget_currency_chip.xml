@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Chip de moneda del widget: degradado neutro + borde sutil, estética Grafito. -->
+<!-- Chip de moneda del widget (modo oscuro): píldora genérica translúcida;
+     el tono del tema lo lleva el color del texto. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
         android:type="linear"
         android:angle="270"
-        android:startColor="@color/widget_chip_top"
-        android:endColor="@color/widget_chip_bottom" />
+        android:startColor="#14FFFFFF"
+        android:endColor="#0DFFFFFF" />
     <corners android:radius="16dp" />
     <stroke
         android:width="1dp"
-        android:color="@color/widget_chip_stroke" />
+        android:color="#2EFFFFFF" />
 </shape>

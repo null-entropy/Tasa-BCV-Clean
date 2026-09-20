@@ -29,13 +29,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -137,7 +136,7 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
+            .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
             .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -152,7 +151,7 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .neuRaised(colors, CircleShape, elevation = 6.dp)
+                .glassRaised(colors, CircleShape, elevation = 6.dp)
                 .pulseClick(pressedScale = 0.85f) {
                     if (!isRefreshing) onRefresh()
                 },
@@ -211,7 +210,7 @@ fun CurrencyCard(
 
     Column(
         modifier = modifier
-            .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+            .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
             .then(
                 if (state is SingleRateState.Loaded) {
                     // Pulso one-shot al tocar: sin estado presionado
@@ -272,7 +271,7 @@ fun CurrencyCard(
                         Text(
                             text = state.errorMessage,
                             fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.error,
+                            color = colors.error,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -396,7 +395,7 @@ private fun StatusPill(status: ConnectionStatus, flash: Boolean) {
         is PillContent.Status -> when (content.status) {
             ConnectionStatus.Online -> colors.deltaDown
             ConnectionStatus.Updating, ConnectionStatus.Connecting -> colors.muted
-            ConnectionStatus.OfflineCached, ConnectionStatus.Offline -> MaterialTheme.colorScheme.error
+            ConnectionStatus.OfflineCached, ConnectionStatus.Offline -> colors.error
         }
     }
     Box(
@@ -470,14 +469,14 @@ private fun StatusRow(status: ConnectionStatus) {
                 StatusText("Conectando…", color = colors.muted)
             }
             ConnectionStatus.OfflineCached -> {
-                StatusIcon(icon = Icons.Filled.WifiOff, tint = MaterialTheme.colorScheme.error)
+                StatusIcon(icon = Icons.Filled.WifiOff, tint = colors.error)
                 Spacer(Modifier.width(5.dp))
-                StatusText("Sin conexión; mostrando caché", color = MaterialTheme.colorScheme.error)
+                StatusText("Sin conexión; mostrando caché", color = colors.error)
             }
             ConnectionStatus.Offline -> {
-                StatusIcon(icon = Icons.Filled.WifiOff, tint = MaterialTheme.colorScheme.error)
+                StatusIcon(icon = Icons.Filled.WifiOff, tint = colors.error)
                 Spacer(Modifier.width(5.dp))
-                StatusText("Sin conexión; sin caché", color = MaterialTheme.colorScheme.error)
+                StatusText("Sin conexión; sin caché", color = colors.error)
             }
         }
     }
@@ -556,7 +555,7 @@ private fun DeltaChip(current: Double, previous: Double) {
     val delta = current - previous
     val isPositive = delta > 0
     val color = if (isPositive) colors.deltaUp else colors.deltaDown
-    val trendIcon = if (isPositive) Icons.Filled.TrendingUp else Icons.Filled.TrendingDown
+    val trendIcon = if (isPositive) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown
     val sign = if (isPositive) "+" else "-"
     Box(
         modifier = Modifier

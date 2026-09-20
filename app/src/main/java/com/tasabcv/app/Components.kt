@@ -138,7 +138,7 @@ fun SlidingSegmentedControl(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .neuInset(colors, containerShape)
+            .glassInset(colors, containerShape)
             // Recorta el indicador a la silueta redondeada (el spring puede
             // empujarlo hacia las esquinas en el overshoot).
             .clip(containerShape)
@@ -168,7 +168,7 @@ fun SlidingSegmentedControl(
                             y = 0
                         )
                     }
-                    .neuRaised(colors, indicatorShape, elevation = 6.dp)
+                    .glassRaised(colors, indicatorShape, elevation = 6.dp)
             )
 
             // Etiquetas por encima del indicador.

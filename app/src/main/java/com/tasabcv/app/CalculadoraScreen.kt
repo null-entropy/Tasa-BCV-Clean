@@ -26,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -134,7 +133,7 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                     is SingleRateState.Empty -> {
                         Text(
                             text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
-                            color = MaterialTheme.colorScheme.error,
+                            color = colors.error,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -143,24 +142,17 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                         if (activeTasa <= 0.0) {
                             Text(
                                 text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
-                                color = MaterialTheme.colorScheme.error,
+                                color = colors.error,
                                 textAlign = TextAlign.Center
                             )
                         } else {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .neuRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+                                    .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
                                     .padding(16.dp)
                             ) {
                                 val fieldSymbol = activeSymbol
-                                Text(
-                                    text = "Monto en $fieldSymbol",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = colors.muted,
-                                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                                )
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     InsetCalcField(
                                         value = baseText,
@@ -175,6 +167,7 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                             }
                                         },
                                         currencyVisual = currencyVisual,
+                                        placeholder = fieldSymbol,
                                         modifier = Modifier.weight(1f)
                                     )
                                     Spacer(Modifier.width(8.dp))
@@ -196,7 +189,7 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                     Box(
                                         modifier = Modifier
                                             .size(32.dp)
-                                            .neuRaised(colors, CircleShape, elevation = 4.dp)
+                                            .glassRaised(colors, CircleShape, elevation = 4.dp)
                                             .padding(4.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -209,13 +202,6 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                     }
                                 }
 
-                                Text(
-                                    text = "Monto en Bolívares",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = colors.muted,
-                                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                                )
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     InsetCalcField(
                                         value = bsText,
@@ -230,6 +216,7 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                             }
                                         },
                                         currencyVisual = currencyVisual,
+                                        placeholder = "Bs",
                                         modifier = Modifier.weight(1f)
                                     )
                                     Spacer(Modifier.width(8.dp))
@@ -263,17 +250,23 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
 /**
  * Campo de la calculadora dentro de un hueco hundido (bisel invertido):
  * el TextField pinta transparente y el relieve lo pone el contenedor.
+ * Las siglas de la moneda ([placeholder]) viven DENTRO de la píldora al lado
+ * izquierdo, como pista DISCRETA (16sp): aparecen SOLO con el campo vacío
+ * (primitivo nativo de Material3) y desaparecen en cuanto el usuario escribe.
+ * La cápsula mide exactamente lo mismo que antes: el placeholder nunca la
+ * agranda (su altura es menor a la del número que se escribe).
  */
 @Composable
 private fun InsetCalcField(
     value: String,
     onValueChange: (String) -> Unit,
     currencyVisual: CurrencyVisualTransformation,
+    placeholder: String,
     modifier: Modifier = Modifier
 ) {
     val colors = appColors
     Box(
-        modifier = modifier.neuInset(colors, FieldShape)
+        modifier = modifier.glassInset(colors, FieldShape)
     ) {
         TextField(
             value = value,
@@ -288,7 +281,16 @@ private fun InsetCalcField(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Start
-            )
+            ),
+            placeholder = {
+                Text(
+                    text = placeholder,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.muted,
+                    textAlign = TextAlign.Start
+                )
+            }
         )
     }
 }
@@ -301,7 +303,9 @@ private fun calcFieldColors() = TextFieldDefaults.colors(
     unfocusedContainerColor = Color.Transparent,
     focusedTextColor = appColors.onSurface,
     unfocusedTextColor = appColors.onSurface,
-    cursorColor = appColors.accent
+    cursorColor = appColors.accent,
+    focusedPlaceholderColor = appColors.muted,
+    unfocusedPlaceholderColor = appColors.muted
 )
 
 /** Botón circular de copiar: pulso one-shot al tocar (sin estado persistente). */
@@ -312,7 +316,7 @@ private fun CopyIconButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(40.dp)
-            .neuRaised(colors, CircleShape, elevation = 5.dp)
+            .glassRaised(colors, CircleShape, elevation = 5.dp)
             .pulseClick {
                 onClick()
             },
