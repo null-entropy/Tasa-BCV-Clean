@@ -49,6 +49,10 @@ class DolarWidgetProvider : AppWidgetProvider() {
         val rate = repo.getCachedRate(currency)
 
         // Tema activo: variante persistida en Ajustes + modo del sistema.
+        // La variante se CARGA aquí (no solo en MainActivity): el widget se
+        // dibuja también sin abrir la app (reinicio del teléfono, proceso
+        // muerto, aviso de los 30 min) y debe pintarse con el tema elegido.
+        ThemeStore.load(context)
         val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
         val palette = ThemeStore.paletteFor(ThemeStore.variant, isDark)

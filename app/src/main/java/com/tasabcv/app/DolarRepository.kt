@@ -4,6 +4,11 @@ import android.content.Context
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Calendar
+import java.util.Locale
+
+/** Resultado mínimo de un GET: el JSON del cuerpo y el código de respuesta (0 = error de conexión). */
+private class RespuestaHttp(val json: JSONObject?, val codigo: Int)
 
 data class DolarRate(
     val promedio: Double,
@@ -19,19 +24,33 @@ sealed class DolarResult {
 
 /**
  * Repositorio: proveedor único dolarapi.com + caché por moneda.
- * Sin cadena de fallback: una sola fuente, respuesta directa y rápida.
+ * Cada actualización pide la tasa VIGENTE y la ANTERIOR (historial diario del
+ * proveedor): el delta funciona desde la instalación nueva, sin depender de
+ * tener caché del día anterior. Sin cadena de proveedores: una sola fuente.
  */
 class DolarRepository(context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * "Saludo" de la app ante el proveedor. El número de versión se toma SIEMPRE
+     * del instalable (PackageManager): una sola fuente de verdad, imposible que
+     * se desfase de `versionName` al publicar una versión nueva.
+     */
+    private val userAgent: String = buildUserAgent(context)
+
     fun fetchRate(currency: String): DolarResult {
         val endpoint = if (currency == "EUR") ENDPOINT_DOLARAPI_EUR else ENDPOINT_DOLARAPI_USD
         val rate = fetchDolarApi(endpoint)
         if (rate != null) {
-            // saveCache devuelve la tasa RESUELTA (con el valor previo calculado
-            // en memoria): cero relecturas de caché tras un fetch exitoso.
-            return DolarResult.Success(saveCache(currency, rate))
+            // Tasa anterior del PROVEEDOR (día publicado inmediatamente antes).
+            // Si la fuente no la aporta, vale la última comparación guardada:
+            // el delta nunca depende de la caché del día anterior.
+            val previous = fetchPrevious(currency, rate.fechaActualizacion)
+                ?: readDouble(keyPrevious(currency))
+            // saveCache devuelve la tasa RESUELTA: cero relecturas de caché tras
+            // un fetch exitoso.
+            return DolarResult.Success(saveCache(currency, rate.copy(previousPromedio = previous)))
         }
         return DolarResult.Error(ERROR_MESSAGE, getCachedRate(currency))
     }
@@ -54,25 +73,12 @@ class DolarRepository(context: Context) {
         maxOf(getCacheTimeMillis("USD"), getCacheTimeMillis("EUR"))
 
     /**
-     * Descarga y parsea la respuesta de dolarapi.com: body mínimo (~200 bytes)
-     * leído directamente y parseado con [JSONObject]. Un solo GET por moneda;
-     * sanity check incluido.
+     * Tasa vigente: body mínimo (~200 bytes) leído directo y parseado con
+     * [JSONObject], con sanity check incluido.
      */
     private fun fetchDolarApi(endpoint: String): DolarRate? {
-        var connection: HttpURLConnection? = null
+        val json = descargarJson(endpoint, TIMEOUT_MS).json ?: return null
         return try {
-            connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = TIMEOUT_MS
-                readTimeout = TIMEOUT_MS
-                setRequestProperty("Accept", "application/json")
-                setRequestProperty("User-Agent", USER_AGENT)
-                instanceFollowRedirects = true
-            }
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-            // Body mínimo (~200 bytes); lectura directa y parseo simple.
-            val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            val json = JSONObject(body)
             if (!json.has("promedio")) return null
             val value = json.getDouble("promedio")
             if (!isSane(value)) return null
@@ -83,33 +89,110 @@ class DolarRepository(context: Context) {
             )
         } catch (_: Exception) {
             null
+        }
+    }
+
+    /**
+     * Tasa del día publicado inmediatamente ANTES del vigente. El BCV no
+     * publica fines de semana ni feriados (esos días la fuente responde 404):
+     * se retrocede día a día, saltando sábados y domingos, hasta encontrar el
+     * valor. Máximo [MAX_PREV_LOOKBACK] días HÁBILES consultados y espera corta
+     * ([PREV_TIMEOUT_MS]) por intento. Cualquier problema distinto de "ese día
+     * no hay publicación" corta el retroceso al instante: el llamador usa la
+     * última comparación guardada. Respuestas diminutas (~100 bytes).
+     */
+    private fun fetchPrevious(currency: String, fechaActualizacion: String): Double? {
+        val (anio, mes, dia) = parseFechaDia(fechaActualizacion) ?: return null
+        val calendar = Calendar.getInstance().apply {
+            clear()
+            set(anio, mes - 1, dia)
+        }
+        val base = if (currency == "EUR") ENDPOINT_HISTORICO_EUR else ENDPOINT_HISTORICO_USD
+        var consultas = 0
+        while (consultas < MAX_PREV_LOOKBACK) {
+            calendar.add(Calendar.DAY_OF_MONTH, -1)
+            when (calendar.get(Calendar.DAY_OF_WEEK)) {
+                Calendar.SATURDAY, Calendar.SUNDAY -> continue // el BCV no publica
+            }
+            consultas++
+            val fecha = String.format(
+                Locale.US, "%04d/%02d/%02d",
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1,
+                calendar.get(Calendar.DAY_OF_MONTH)
+            )
+            val respuesta = descargarJson("$base/$fecha", PREV_TIMEOUT_MS)
+            when {
+                // Día sin publicación (fin de semana largo / feriado): seguir retrocediendo.
+                respuesta.codigo == HttpURLConnection.HTTP_NOT_FOUND -> continue
+                // Problema real de la fuente: parar ya y usar lo guardado.
+                respuesta.codigo != HttpURLConnection.HTTP_OK -> return null
+                else -> {
+                    val value = try {
+                        respuesta.json?.let { if (it.has("promedio")) it.getDouble("promedio") else null }
+                    } catch (_: Exception) {
+                        null
+                    }
+                    return if (value != null && isSane(value)) value else null
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * "AAAA-MM-DD" (prefijo ISO) a sus tres partes numéricas; null si no es una
+     * fecha válida. Sin `java.time` (minSdk 24 sin desugaring).
+     */
+    private fun parseFechaDia(iso: String): Triple<Int, Int, Int>? {
+        val fecha = iso.take(10)
+        if (fecha.length != 10 || fecha[4] != '-' || fecha[7] != '-') return null
+        val anio = fecha.substring(0, 4).toIntOrNull() ?: return null
+        val mes = fecha.substring(5, 7).toIntOrNull() ?: return null
+        val dia = fecha.substring(8, 10).toIntOrNull() ?: return null
+        if (anio < 2000 || mes !in 1..12 || dia !in 1..31) return null
+        return Triple(anio, mes, dia)
+    }
+
+    /** GET simple a la fuente: body leído directo y parseado con [JSONObject]. */
+    private fun descargarJson(url: String, timeoutMs: Int): RespuestaHttp {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = timeoutMs
+                readTimeout = timeoutMs
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", userAgent)
+                instanceFollowRedirects = true
+            }
+            val codigo = connection.responseCode
+            if (codigo != HttpURLConnection.HTTP_OK) return RespuestaHttp(null, codigo)
+            val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            RespuestaHttp(JSONObject(body), codigo)
+        } catch (_: Exception) {
+            RespuestaHttp(null, 0)
         } finally {
             connection?.disconnect()
         }
     }
 
     /**
-     * Persiste la tasa y devuelve la versión RESUELTA (con [DolarRate.previousPromedio]
-     * calculado en memoria): el previo solo se relee cuando NO hubo cambio.
-     * `readDouble` ya filtra valores ≤ 0, así que basta con comparar.
+     * Persiste la tasa vigente y la comparación del delta (valor anterior) para
+     * el uso SIN internet, y devuelve la misma tasa resuelta: cero relecturas
+     * de caché tras un fetch exitoso. El anterior se guarda SIEMPRE que exista
+     * (traído del proveedor o heredado como respaldo): así el indicador de
+     * variación sigue funcionando aunque la app se use sin conexión.
      */
     private fun saveCache(currency: String, rate: DolarRate): DolarRate {
-        val oldPromedio = readDouble(keyPromedio(currency))
-        val changed = oldPromedio != null && !sameRate(oldPromedio, rate.promedio)
         val editor = prefs.edit()
             .putString(keyPromedio(currency), rate.promedio.toString())
             .putString(keyFecha(currency), rate.fechaActualizacion)
             .putString(keyFuente(currency), rate.fuente)
             .putLong(keyCacheTime(currency), System.currentTimeMillis())
-
-        // Solo cuando hay cambio real de tasa (no en cada refresh del mismo día).
-        if (oldPromedio != null && changed) {
-            editor.putString(keyPrevious(currency), oldPromedio.toString())
-        }
-
+        rate.previousPromedio?.let { editor.putString(keyPrevious(currency), it.toString()) }
         editor.apply()
-        val previous = if (changed) oldPromedio else readDouble(keyPrevious(currency))
-        return rate.copy(previousPromedio = previous)
+        return rate
     }
 
     /** Lee Double guardado como String; fallback a Float legacy (evita ClassCastException). */
@@ -137,11 +220,32 @@ class DolarRepository(context: Context) {
         private const val ENDPOINT_DOLARAPI_USD = "https://ve.dolarapi.com/v1/dolares/oficial"
         private const val ENDPOINT_DOLARAPI_EUR = "https://ve.dolarapi.com/v1/euros/oficial"
 
+        // Historial diario del proveedor (la fecha se pide con BARRAS: AAAA/MM/DD;
+        // el cuerpo de la respuesta la trae con guiones: AAAA-MM-DD).
+        private const val ENDPOINT_HISTORICO_USD = "https://ve.dolarapi.com/v1/historicos/dolares/oficial"
+        private const val ENDPOINT_HISTORICO_EUR = "https://ve.dolarapi.com/v1/historicos/euros/oficial"
+
         /** Fuente de datos visible en la ficha de información de Ajustes. */
         const val FUENTE = "dolarapi.com"
         private const val TIMEOUT_MS = 6000
-        private const val USER_AGENT = "TasaBCVCleam-App/4.8.0 (Android)"
+
+        /** Espera corta por consulta diaria del historial: nunca congelar la app. */
+        private const val PREV_TIMEOUT_MS = 3000
+
+        /** Máximo de días HÁBILES consultados al buscar la tasa anterior. */
+        private const val MAX_PREV_LOOKBACK = 5
+
         private const val ERROR_MESSAGE = "No se pudo conectar con la fuente de tasas."
+
+        /** Marca de identificación de la app ante el proveedor (con versión real). */
+        private fun buildUserAgent(context: Context): String {
+            val version = try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            } catch (_: Exception) {
+                null
+            }
+            return "TasaBCVCleam-App/${version ?: "desconocida"} (Android)"
+        }
 
         private const val KEY_PROMEDIO = "promedio"
         private const val KEY_FECHA = "fecha"
