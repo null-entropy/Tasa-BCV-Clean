@@ -22,8 +22,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -188,7 +191,9 @@ object AppUpdater {
                     val apkFile = withContext(Dispatchers.IO) {
                         downloadApk(appContext, result.info.apkUrl) { pct ->
                             scope.launch {
-                                manualState = ManualUpdateState.Downloading(pct)
+                                if (manualState is ManualUpdateState.Downloading) {
+                                    manualState = ManualUpdateState.Downloading(pct)
+                                }
                             }
                         }
                     }
@@ -228,7 +233,9 @@ object AppUpdater {
             val apkFile = withContext(Dispatchers.IO) {
                 downloadApk(appContext, info.apkUrl) { pct ->
                     scope.launch {
-                        dialogDownloadProgress = pct
+                        if (dialogDownloadProgress != null) {
+                            dialogDownloadProgress = pct
+                        }
                     }
                 }
             }
@@ -501,7 +508,10 @@ fun UpdatePromptDialog(info: UpdateInfo) {
                 lineHeight = 18.sp,
                 color = colors.muted,
                 textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 200.dp)
+                    .verticalScroll(rememberScrollState())
             )
 
             Spacer(Modifier.height(16.dp))

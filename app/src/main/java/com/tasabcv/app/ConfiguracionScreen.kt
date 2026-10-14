@@ -58,7 +58,7 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Medidas del tab Ajustes según la altura de pantalla: tipografía, paddings y
- * alturas escalan JUNTOS para que las tres fichas quepan SIEMPRE, proporciona-
+ * alturas escalan JUNTOS para que las cuatro fichas quepan SIEMPRE, proporciona-
  * les y sin scroll. Un preset por franja de altura (calculado 1 vez, costo 0).
  */
 private data class AjustesSizing(
