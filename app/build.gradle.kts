@@ -21,8 +21,8 @@ android {
         applicationId = "com.tasabcv.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 41
-        versionName = "4.8.1"
+        versionCode = 43
+        versionName = "4.9.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -132,23 +132,4 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
-}
-
-// Compila release y copia el APK firmado a la carpeta Descargas del usuario,
-// renombrado con la versión vigente.
-tasks.register("copyReleaseToDownloads") {
-    dependsOn("assembleRelease")
-    doLast {
-        val apk = layout.buildDirectory.file("outputs/apk/release/app-release.apk").get().asFile
-        if (!apk.exists()) {
-            throw GradleException("No se encontró el APK release: ${apk.absolutePath}")
-        }
-        val downloadsDir = File(System.getProperty("user.home"), "Downloads")
-        if (!downloadsDir.exists()) {
-            throw GradleException("No existe la carpeta Descargas: ${downloadsDir.absolutePath}")
-        }
-        val target = File(downloadsDir, "TasaBCV-Cleam-v${android.defaultConfig.versionName}.apk")
-        apk.copyTo(target, overwrite = true)
-        println("APK copiado a: ${target.absolutePath}")
-    }
 }

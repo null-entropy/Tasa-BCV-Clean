@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -61,11 +60,21 @@ class MainActivity : ComponentActivity() {
                 MainScreen(viewModel)
             }
         }
+        AppUpdater.checkDailyIfNeeded(this)
     }
 
     override fun onResume() {
         super.onResume()
         viewModel.onAppResumed()
+        AppUpdater.onAppResumed(this)
+        AppUpdater.checkDailyIfNeeded(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) {
+            ThemeStore.applyIconIfNeeded(this)
+        }
     }
 }
 
@@ -163,6 +172,10 @@ fun MainScreen(viewModel: DolarViewModel) {
             composable("tasas") { TasasScreen(viewModel) }
             composable("calculadora") { CalculadoraScreen(viewModel) }
         }
+    }
+
+    AppUpdater.dailyPromptInfo?.let { info ->
+        UpdatePromptDialog(info)
     }
 }
 

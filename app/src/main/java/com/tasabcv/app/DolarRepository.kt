@@ -238,13 +238,13 @@ class DolarRepository(context: Context) {
         private const val ERROR_MESSAGE = "No se pudo conectar con la fuente de tasas."
 
         /** Marca de identificación de la app ante el proveedor (con versión real). */
-        private fun buildUserAgent(context: Context): String {
+        internal fun buildUserAgent(context: Context): String {
             val version = try {
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName
             } catch (_: Exception) {
                 null
             }
-            return "TasaBCVCleam-App/${version ?: "desconocida"} (Android)"
+            return "TasaBCVClean-App/${version ?: "desconocida"} (Android)"
         }
 
         private const val KEY_PROMEDIO = "promedio"

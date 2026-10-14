@@ -6,6 +6,14 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -72,25 +80,28 @@ private data class AjustesSizing(
 
 private fun ajustesSizing(screenHeightDp: Int): AjustesSizing = when {
     screenHeightDp >= 800 -> AjustesSizing(
-        18, 12, 17, 11, 16, 12, 15, 46.dp, 110.dp, 16.dp, 10.dp, 5.dp, 9.dp, 24.dp
+        17, 12, 16, 11, 15, 12, 14, 42.dp, 96.dp, 14.dp, 8.dp, 4.dp, 8.dp, 16.dp
     )
     screenHeightDp >= 700 -> AjustesSizing(
-        17, 12, 15, 11, 15, 11, 14, 40.dp, 82.dp, 14.dp, 7.dp, 4.dp, 7.dp, 24.dp
+        16, 11, 15, 10, 14, 11, 13, 38.dp, 76.dp, 12.dp, 6.dp, 4.dp, 6.dp, 12.dp
     )
     else -> AjustesSizing(
-        15, 10, 14, 9, 12, 9, 12, 36.dp, 76.dp, 10.dp, 5.dp, 4.dp, 5.dp, 24.dp
+        14, 10, 13, 9, 12, 9, 12, 34.dp, 64.dp, 9.dp, 4.dp, 3.dp, 5.dp, 8.dp
     )
 }
 
 /**
  * Tab Ajustes (a la izquierda de Tasas), SIN título: el contenido arranca
- * directo. Tres fichas del mismo lenguaje visual (glassRaised 32dp):
+ * directo. Cuatro fichas del mismo lenguaje visual (glassRaised 32dp):
  *   1. "Añadir widget": acción principal, arriba; ancla el widget (API 26+)
  *      o muestra los pasos manuales en launchers sin soporte.
  *   2. "Personalización": banner informativo del modo + selección de tema
  *      (Sistema/Azul/Verde/Rosado) con doble tono claro/oscuro por opción.
- *   3. Información fija al pie: versión, fuente, creador y lema.
- * El hueco entre fichas absorbe el sobrante (Spacer weight): cero scroll.
+ *   3. "Buscar actualización": ficha-botón compacta (solo texto centrado con
+ *      la misma transición del pie de Tasas) que busca, descarga e instala.
+ *   4. Información fija al pie: versión, fuente, creador y lema.
+ * Los 3 huecos entre las 4 fichas usan exactamente la misma pareja
+ * (Spacer weight(1f) + Spacer fichaGap): márgenes idénticos y cero scroll.
  */
 @Composable
 fun ConfiguracionScreen() {
@@ -197,19 +208,23 @@ fun ConfiguracionScreen() {
                 }
             }
 
-            // Hueco ENTRE fichas: margen FIJO siempre visible (fichaGap) +
-            // reparto del sobrante. El weight solo puede colapsar a cero; el
-            // margen fijo nunca (weight con fill=true impone altura exacta y
-            // anularía heightIn, por eso son dos Spacers).
+            // Los 3 huecos entre las 4 fichas llevan EXACTAMENTE la misma
+            // pareja (Spacer weight(1f) + Spacer fichaGap): el margen entre
+            // todas las fichas es estrictamente idéntico en cualquier pantalla.
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(sizing.fichaGap))
 
             PersonalizacionCard(sizing)
 
-            Spacer(Modifier.height(sizing.fichaGap))
             Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(sizing.fichaGap))
 
-            // FICHA 3 — Información fija: no es un botón (sin pulseClick).
+            UpdateCheckCard(sizing)
+
+            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(sizing.fichaGap))
+
+            // FICHA 4 — Información fija: no es un botón (sin pulseClick).
             // Filas etiqueta↔valor + lema centrado como cierre.
             Box(
                 modifier = Modifier
@@ -256,6 +271,65 @@ fun ConfiguracionScreen() {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Ficha 3 — "Buscar actualización": ficha compacta que actúa únicamente como
+ * botón, sin ícono y solo con el texto centrado coherente con las demás fichas.
+ * La transición entre textos ("Buscar actualización" -> "Buscando…" ->
+ * "Ya tienes la última versión" / "Descargando…" / "Sin conexión") usa
+ * estrictamente la MISMA animación que el texto del pie de Tasas (StatusPill).
+ */
+@Composable
+private fun UpdateCheckCard(sizing: AjustesSizing) {
+    val colors = appColors
+    val context = LocalContext.current
+    val state = AppUpdater.manualState
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+            .pulseClick(pressedScale = 0.97f) {
+                AppUpdater.onManualCardClick(context)
+            }
+            .padding(horizontal = 20.dp, vertical = sizing.cardPaddingV),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedContent(
+            targetState = state,
+            transitionSpec = {
+                (fadeIn(tween(180)) +
+                    slideInVertically(MotionSpringIntOffset) { it / 3 } +
+                    scaleIn(PopSpring, initialScale = 0.85f)) togetherWith
+                    (fadeOut(tween(140)) + scaleOut(targetScale = 0.92f, animationSpec = tween(140)))
+            },
+            contentKey = { it.animationKey },
+            label = "UpdateCheckCardText"
+        ) { current ->
+            val (text, textColor) = when (current) {
+                ManualUpdateState.Idle ->
+                    stringResource(R.string.update_card_idle) to colors.onSurface
+                ManualUpdateState.Checking ->
+                    stringResource(R.string.update_card_checking) to colors.muted
+                ManualUpdateState.UpToDate ->
+                    stringResource(R.string.update_card_up_to_date) to colors.deltaDown
+                ManualUpdateState.Offline ->
+                    stringResource(R.string.update_card_offline) to colors.error
+                is ManualUpdateState.Downloading ->
+                    stringResource(R.string.update_card_downloading, current.progress) to colors.accent
+            }
+            Text(
+                text = text,
+                fontSize = sizing.titleFontSize.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TasaBCV-Cleam"
+rootProject.name = "TasaBCV-Clean"
 include(":app")

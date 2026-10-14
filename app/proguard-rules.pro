@@ -1,5 +1,5 @@
 # ==========================================================================
-#  Reglas ProGuard / R8 para Tasa BCV - Cleam (com.tasabcv.app)
+#  Reglas ProGuard / R8 para Tasa BCV - Clean (com.tasabcv.app)
 # ==========================================================================
 #  Compose + HttpURLConnection + org.json. Sin reflexión de aplicación.
 #  El manifest retiene Activity/Widget; aquí reforzamos modelo y puntos de entrada.
@@ -11,6 +11,9 @@
 -keep class com.tasabcv.app.DolarUiState { *; }
 -keep class com.tasabcv.app.SingleRateState { *; }
 -keep class com.tasabcv.app.SingleRateState$* { *; }
+-keep class com.tasabcv.app.UpdateInfo { *; }
+-keep class com.tasabcv.app.ManualUpdateState { *; }
+-keep class com.tasabcv.app.ManualUpdateState$* { *; }
 
 # ---------- Componentes instanciados por el sistema (manifest) ----------
 -keep class com.tasabcv.app.MainActivity { *; }

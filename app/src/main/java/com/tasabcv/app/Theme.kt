@@ -1,8 +1,10 @@
 package com.tasabcv.app
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
@@ -301,6 +303,54 @@ object ThemeStore {
         ThemeVariant.AZUL -> if (isDark) AzulDarkColors else AzulLightColors
         ThemeVariant.VERDE -> if (isDark) VerdeDarkColors else VerdeLightColors
         ThemeVariant.ROSADO -> if (isDark) RosadoDarkColors else RosadoLightColors
+    }
+
+    private fun aliasClassName(variant: ThemeVariant): String = when (variant) {
+        ThemeVariant.SISTEMA -> "com.tasabcv.app.LauncherSistema"
+        ThemeVariant.AZUL -> "com.tasabcv.app.LauncherAzul"
+        ThemeVariant.VERDE -> "com.tasabcv.app.LauncherVerde"
+        ThemeVariant.ROSADO -> "com.tasabcv.app.LauncherRosado"
+    }
+
+    /**
+     * Sincroniza el ícono del escritorio con la variante activa AL SALIR de la
+     * app (MainActivity.onStop): dentro de Ajustes la transición de color nunca
+     * se interrumpe y, si el ícono ya coincide, no hace nada (costo cero).
+     */
+    fun applyIconIfNeeded(context: Context) {
+        val pm = context.packageManager
+        val pkg = context.packageName
+        val target = variant
+        val targetComponent = ComponentName(pkg, aliasClassName(target))
+        val targetState = pm.getComponentEnabledSetting(targetComponent)
+        val isTargetEnabled = targetState == PackageManager.COMPONENT_ENABLED_STATE_ENABLED ||
+            (target == ThemeVariant.SISTEMA && targetState == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT)
+
+        val anyOtherEnabled = ThemeVariant.values().any { candidate ->
+            if (candidate == target) return@any false
+            val state = pm.getComponentEnabledSetting(ComponentName(pkg, aliasClassName(candidate)))
+            state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED ||
+                (candidate == ThemeVariant.SISTEMA && state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT)
+        }
+
+        if (isTargetEnabled && !anyOtherEnabled) return
+
+        // Primero habilitamos el nuevo alias y luego deshabilitamos los demás:
+        // así el launcher siempre ve al menos un ícono válido durante el relevo.
+        pm.setComponentEnabledSetting(
+            targetComponent,
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP
+        )
+        ThemeVariant.values().forEach { candidate ->
+            if (candidate != target) {
+                pm.setComponentEnabledSetting(
+                    ComponentName(pkg, aliasClassName(candidate)),
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+            }
+        }
     }
 }
 

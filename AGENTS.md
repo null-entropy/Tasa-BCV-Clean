@@ -1,4 +1,4 @@
-# AGENTS.md — Tasa BCV - Cleam
+# AGENTS.md — Tasa BCV - Clean
 
 > Referencia rápida para agentes. Solo lo no obvio — si no evita un error, no está aquí.
 > Este documento manda: si cambias código, actualiza el doc en el mismo cambio. Verificar coherencia en cada tarea.
@@ -33,18 +33,20 @@ App Android nativa Kotlin + Compose. Muestra dólar/euro oficial BCV y calculado
 keystore/dolarbcv-release.keystore  # irreemplazable
 keystore.properties / local.properties  # no se commitean
 KEYSTORE_INFO.txt  # respaldo documentado de la clave de firma (crítico)
-app/build.gradle.kts  # versionCode/versionName + firma + copyReleaseToDownloads
+README.md          # portada de GitHub con botón de descarga directa de la última versión
+app/build.gradle.kts  # versionCode/versionName + firma
 app/proguard-rules.pro  # qué clases NO se pueden borrar al preparar el APK (si añades reflexión, añade reglas)
 app/src/main/java/com/tasabcv/app/
-  MainActivity.kt      # edge-to-edge + NavHost (3 tabs, transiciones por índice) + bottom bar
-  ConfiguracionScreen.kt # tab Ajustes: ficha widget + ficha Personalización (temas) + ficha info
+  MainActivity.kt      # edge-to-edge + NavHost (3 tabs, transiciones por índice) + bottom bar + cartel diario de actualización + aplicar ícono en onStop
+  ConfiguracionScreen.kt # tab Ajustes: 4 fichas (widget + Personalización + Buscar actualización + info) con 3 márgenes idénticos
+  AppUpdater.kt        # actualización desde GitHub Releases (revisión diaria 24h + manual desde Ajustes + descarga + FileProvider)
   TasasScreen.kt       # topBar fecha/refresh + CurrencyCard + odómetro
   CalculadoraScreen.kt # bidireccional, sin título de encabezado
   DolarRepository.kt   # dolarapi.com + caché SharedPreferences
   DolarViewModel.kt    # uiState + isRefreshing
   DolarWidgetProvider.kt # RemoteViews (no Glance)
   Format.kt / CurrencyFormat.kt / ClipboardUtils.kt / Theme.kt / Depth.kt / Components.kt
-app/src/main/res/{layout/widget_dolar.xml, xml/dolar_widget_info.xml, values/*, values-night/*, drawable/widget_*.xml (8 fondos + 2 chips), font/poppins_*.ttf (4 pesos)}
+app/src/main/res/{layout/widget_dolar.xml, xml/dolar_widget_info.xml, xml/file_paths.xml, values/*, values-night/*, drawable/widget_*.xml (8 fondos + 2 chips), drawable/ic_launcher*.xml (4 variantes), mipmap-anydpi-v26/ic_launcher*.xml, font/poppins_*.ttf (4 pesos)}
 ```
 Regenerable (no versionar): `.gradle/`, `.kotlin/`, `app/build/`. Nunca borrar ni renombrar: `keystore/`, `gradle-wrapper.jar`. `app/src/` es el código editable.
 
@@ -55,7 +57,7 @@ Compose collectAsState() → DolarViewModel → DolarRepository (dolarapi.com + 
 - `DolarUiState = usdState + eurState` : `Loading | Loaded(rate,isFromCache,warning) | Empty`. `warning` solo cuando un fetch terminó en error y se muestra caché; la caché pintada al instante en el arranque NO lo muestra. Pie SIEMPRE presente: pill de estado de conexión (estilo chip del delta, color = estado) PERFECTAMENTE centrada en TODOS los estados (el botón "Reintentar" fue eliminado; el reintento vive en el círculo de refrescar de la barra superior y en `onAppResumed`). Estados: `Actualizado` verde / `Sin conexión; mostrando caché` / `Sin conexión; sin caché` rojo / `Conectando…` / `Actualizando…` durante refresco.
 - `loadOnFirstOpen()` muestra caché instantánea (`showCacheNow()`), refresca solo si ≥30min o sin fetch. `refresh()` mantiene visible y actualiza USD+EUR juntos al terminar; `isRefreshing` separado bloquea dobles fetch.
 - `onAppResumed()` revalida solo si ≥30min desde el último fetch exitoso. Sin polling en 2º plano ni WorkManager.
-- **Caché** `dolar_bcv_prefs`: `promedio_*`, `fecha_*`, `fuente_*`, `cache_time_*`, `previous_*` (comparación del delta = tasa del día publicado inmediatamente antes, traída del proveedor; respaldo y uso sin internet) + `widget_currency` + `app_theme_variant` (tema elegido en Ajustes, `ThemeStore`). Números como String (tolerante Float legacy). Sanity `(0,1_000_000]`. Delta local `sameRate` 0.00005, solo en Tasas.
+- **Caché** `dolar_bcv_prefs`: `promedio_*`, `fecha_*`, `fuente_*`, `cache_time_*`, `previous_*` (comparación del delta = tasa del día publicado inmediatamente antes, traída del proveedor; respaldo y uso sin internet) + `widget_currency` + `app_theme_variant` (tema elegido en Ajustes, `ThemeStore`) + `last_update_check_time` (marca de revisión diaria de actualizaciones, `AppUpdater`). Números como String (tolerante Float legacy). Sanity `(0,1_000_000]`. Delta local `sameRate` 0.00005, solo en Tasas.
 
 ## 5. Fuente de datos
 El BCV no tiene API pública; la app usa **dolarapi.com como proveedor único** (antes había una cadena de 3 proveedores: pydolarve.dev y bcv.org.ve fueron eliminados de forma profunda por estar caído el primero y ser frágil el scraping del segundo). Timeout **6 s por moneda**. Constantes en `DolarRepository.companion`; el User-Agent se construye en runtime con el `versionName` real del instalable (`buildUserAgent` vía PackageManager): una sola fuente de verdad, imposible que se desfase al publicar una versión nueva.
@@ -70,7 +72,8 @@ El BCV no tiene API pública; la app usa **dolarapi.com como proveedor único** 
 Reglas: 1) Solo HTTPS (`usesCleartextTraffic="false"`). 2) Fin de semana: el proveedor devuelve el valor vigente; no se calcula "qué tasa toca según el día". 3) Si el fetch falla, se muestra la caché con advertencia (o error si no hay caché). 4) USD y EUR se descargan en paralelo (2 GETs independientes; no existe endpoint combinado en ve.dolarapi.com) + una búsqueda en el historial POR MONEDA para la tasa anterior (hasta 5 consultas por moneda: una por cada día hábil retrocedido, ver regla 7). 5) La respuesta es un body mínimo (~200 bytes; el histórico diario ~100) que se lee directo del InputStream y se parsea con `JSONObject` (el `org.json` del SDK no acepta Reader). 6) La región Venezuela solo soporta USD y EUR (oficial BCV; también expone paralelo Yadio, no usado). Sin USDT/criptos. 7) **Tasa anterior (delta):** la fecha se PIDE con barras (`2026/10/02`) y la respuesta la trae con guiones (`2026-10-02`); los días sin publicación (fines de semana y feriados) responden 404 → se retrocede día a día SALTANDO sábados y domingos (máx. 5 días HÁBILES consultados, 3 s por intento); cualquier otro fallo corta el retroceso al instante y se usa la última comparación guardada. El histórico COMPLETO (`/v1/historicos/...` sin fecha) trae todos los días desde 2023 (~112 KB): PROHIBIDO usarlo (va contra el lema).
 
 ## 6. Build y entrega
-> Solo compilar / `copyReleaseToDownloads` si el usuario lo pide con palabras claras. Nunca asumir `versionName`/`versionCode`: si no los dio explícitos, preguntar siempre antes de compilar.
+> Solo compilar (`assembleRelease`) si el usuario lo pide con palabras claras. Nunca asumir `versionName`/`versionCode`: si no los dio explícitos, preguntar siempre antes de compilar.
+> **REGLA DE SUBIDA AUTOMÁTICA DEL APK (SIN CARPETA DESCARGAS):** no existe paso por la carpeta `Downloads`. Al compilar una nueva versión del APK (`.\gradlew assembleRelease`, salida única en `app/build/outputs/apk/release/app-release.apk`), tras verificar la firma se debe **subir automáticamente a GitHub** (`commit + push` a `origin/main` + publicación como ÚNICA release activa en GitHub Releases adjuntando `TasaBCV-Clean.apk`, ver §12).
 
 **AUDITORÍA PRE-COMPILACIÓN (OBLIGATORIA):** tras cualquier implementación y ANTES de compilar, auditar y verificar que todo salió a la perfección — compilar con código sin auditar está prohibido:
 1. Balance de llaves/paréntesis en cada Kotlin tocado (script de conteo `{`/`}`, `(`/`)`).
@@ -79,17 +82,17 @@ Reglas: 1) Solo HTTPS (`usesCleartextTraffic="false"`). 2) Fin de semana: el pro
 4. Revisión visual del código nuevo (indentación, estructura, coherencia con el estilo del proyecto).
 5. `AGENTS.md` coherente con el código (misma regla §15).
 
-Después de compilar: 0 errores / 0 advertencias en el log (ÚNICO aviso aceptado: el de "experimental" de `android.overridePathCheck=true`, siempre presente e intencional), firma verificada (`apksigner verify`), versión del APK confirmada (`aapt2 dump badging`) y peso revisado (checklist §13).
+Después de compilar: 0 errores / 0 advertencias en el log (ÚNICO aviso aceptado: el de "experimental" de `android.overridePathCheck=true`, siempre presente e intencional), firma verificada (`apksigner verify`), versión del APK confirmada (`aapt2 dump badging`), peso revisado y APK subido a GitHub Releases (checklist §13).
 
 **Sin pruebas automáticas:** `app/src` solo contiene `main` (no hay carpetas de pruebas ni suites que ejecutar). La verificación real es esta auditoría + checklist §13 + probar la app en un teléfono.
 
 Requisitos: JDK 17, SDK ÚNICO del proyecto `C:\Android\Sdk` (platform-tools, platforms;android-34, build-tools;34.0.0; licenses y cmdline-tools incluidos). **STUDIO-FREE:** prohibido abrir el proyecto con Android Studio; no debe existir `.idea/` ni artefactos de Studio (si reaparecen, borrarlos; `.gitignore` los excluye). Gradle usa `sdk.dir` de `local.properties` → SIEMPRE `C:\Android\Sdk` (barras normales). Gotcha Windows: ruta no-ASCII falla AGP → ya resuelto `android.overridePathCheck=true`.
 
 ```powershell
-cd "C:\Users\Admin\Proyectos\Tasa BCV - Cleam"
-.\gradlew copyReleaseToDownloads
+cd "C:\Users\Admin\Proyectos\Tasa BCV - Clean"
+.\gradlew assembleRelease
 ```
-Compila `assembleRelease` (minify+shrinkResources+firma) y copia a `C:\Users\Admin\Downloads\TasaBCV-Cleam-v<version>.apk`. Salida `app/build/outputs/apk/release/app-release.apk`.
+Compila `assembleRelease` (minify+shrinkResources+firma). Salida única: `app/build/outputs/apk/release/app-release.apk`.
 
 ## 7. Firma (CRÍTICO)
 | Archivo | `keystore/dolarbcv-release.keystore` (PKCS12, alias `dolarbcv`, RSA 2048) |
@@ -98,13 +101,13 @@ Compila `assembleRelease` (minify+shrinkResources+firma) y copia a `C:\Users\Adm
 
 Nunca perder/regenerar/renombrar (identidad legacy `Dolar BCV` intencional). Nunca commitear `keystore/` ni `keystore.properties`. `storeFile` relativo a raíz (`rootProject.file(...)`). Verificar:
 ```bash
-"C:/Android/Sdk/build-tools/34.0.0/apksigner.bat" verify --verbose --print-certs "$env:USERPROFILE\Downloads\TasaBCV-Cleam-v<version>.apk"
+"C:/Android/Sdk/build-tools/34.0.0/apksigner.bat" verify --verbose --print-certs "app/build/outputs/apk/release/app-release.apk"
 # debe decir Verifies + CN=Dolar BCV
 ```
 Gotcha de verificación: `apksigner` puede reportar `v1 scheme: false` AUNQUE la firma v1 (JAR) exista (convive con v2). Si `jarsigner -verify` dice `jar verified`, la firma v1 está bien; no "arreglar" nada.
 
 ## 8. Identidad
-`applicationId com.tasabcv.app` (ex `com.dolarbcv.app` v4.0.0), `versionCode 41 / versionName 4.8.1` en `app/build.gradle.kts` (cada release requiere `versionCode` mayor), nombre `Tasa BCV - Cleam`, permisos solo `INTERNET` + `ACCESS_NETWORK_STATE`.
+`applicationId com.tasabcv.app` (ex `com.dolarbcv.app` v4.0.0), `versionCode 43 / versionName 4.9.1` en `app/build.gradle.kts` (cada release requiere `versionCode` mayor), nombre `Tasa BCV - Clean`, permisos `INTERNET` + `ACCESS_NETWORK_STATE` + `REQUEST_INSTALL_PACKAGES` (actualización propia vía `FileProvider`).
 
 ## 9. Widget
 `DolarWidgetProvider` RemoteViews clásico. `widget_dolar.xml` + `dolar_widget_info.xml` (4×2 celdas apaisado: `targetCellWidth 4` / `targetCellHeight 2`, `minWidth 250dp` / `minHeight 110dp` para launchers pre-12, 30min). **Solo lee caché, no hace HTTP.** Toggle `USD↔EUR` broadcast `com.tasabcv.app.TOGGLE_CURRENCY`, tap abre `MainActivity`. Sin delta, `RelativeSizeSpan` 0.5x para `Bs`. `refreshAll()` se llama desde el ViewModel tras cada fetch exitoso y desde la ficha Personalización al cambiar de tema. Layout: chip de moneda arriba, valor grande (`weight 3`, autoSize 18–44sp) centrado, fecha al pie. **Tintado por tema:** `setInt(widget_root, "setBackgroundResource", …)` con 8 shape XML translúcidos: `widget_background` = grafito OSCURO, `widget_bg_grafito_light` = grafito claro y los otros 6 = `widget_bg_<variante>_<modo>.xml`. ATENCIÓN: NO existe `widget_bg_grafito_dark.xml` (el oscuro de grafito ES `widget_background`): no lo crees buscando simetría, quedaría sin usar. Y chip genérico por modo (`widget_currency_chip` oscuro / `widget_chip_light`); los colores de texto (acento/superficie/apagado) se aplican programáticamente desde `ThemeStore.paletteFor(variant, modoSistema)`. `buildViews` llama a `ThemeStore.load(context)` ANTES de pintar: el widget se dibuja también sin abrir la app (reinicio del teléfono, proceso muerto, aviso de 30 min) y debe respetar el tema elegido.
@@ -121,12 +124,14 @@ Gotcha de verificación: `apksigner` puede reportar `v1 scheme: false` AUNQUE la
 - **Lenguaje de movimiento ÚNICO:** TODO movimiento de la app usa los muelles compartidos de `Components.kt`: `MotionSpring` (Float e IntOffset, damping 0.9 / stiffness 350 — indicador deslizante, carrusel USD↔EUR, transición de tabs, odómetro, tamaño del valor, presiones) y `PopSpring` (damping 0.75 / stiffness 420 — entradas pop: delta 0.55→1, mensajes de pill 0.85→1). Los fades acompañan con tweens cortos (140–200 ms). Prohibido añadir springs ad-hoc fuera de este par (§1); el `MotionSpringColor` de `Theme.kt` es el único tercero de la familia (mismas físicas 0.9/350, para colores). El indicador del segmented asienta SIEMPRE dentro de su burbuja (sin overshoot visible) y las transiciones de tabs/selector son direccionales (coherentes entre sí).
 - **Transición de tabs (3 tabs):** dirección por comparación de ÍNDICES (`routeIndex`: ajustes 0 / tasas 1 / calculadora 2), no de ruta — entrar desde el lado del tab elegido, salir al opuesto, mismo `MotionSpringIntOffset` + fades 200/160 ms; el indicador de la barra y las pantallas van coherentes.
 - **Fichas tasas:** sin botones copiar/compartir (compartir eliminado de raíz; `shareRate` ya no existe). Tocar la ficha copia la tasa: `pulseClick` 0.97f (pulso one-shot de escala, ver bullet `pulseClick`) + pill del pie destella "Tasa copiada" ~1.2 s (`AnimatedContent` con los muelles compartidos; cero trabajo si el mensaje no cambia). Pie: pill SIEMPRE centrada en todos los estados. Pill estilo chip del delta: fondo translúcido 10% + borde 28% + esquinas 16dp, color = estado (verde actualizado, rojo sin conexión, neutro conectando/actualizando, acento al copiar); SIN punto separado (el color comunica). Delta en slot fijo 36dp: chip de FLECHA DE TENDENCIA (`Icons.AutoMirrored.Filled.TrendingUp`/`TrendingDown`, estilo "gráfica", 16dp junto al texto) con pop de `PopSpring` al entrar, o ficha fantasma "—" con idénticas medidas cuando no hay con qué comparar o el valor no cambió (nunca queda hueco). La comparación SIEMPRE es contra el día publicado inmediatamente antes (historial del proveedor, ver §5 regla 7): funciona desde la instalación nueva y sin internet (respaldo `previous_*`); sin fecha de comparación en el chip (diseño limpio).
-- **Ajustes (ConfiguracionScreen):** sin título. Tres fichas. Ficha 1 "Añadir Widget" (`pulseClick` 0.97f): ícono a la IZQUIERDA + título centrado como encabezado; textos descriptivos JUSTIFICADOS (más palabras por línea para que el justificado no estire los espacios); `requestPinAppWidget` si API 26+ y launcher soporta; si no, la MISMA ficha muestra los pasos manuales (sin estados transitorios: soporte consultado UNA vez en `remember`). Ficha 2 "Personalización" (ver bullet propio). Ficha 3 fija al pie (sin interacción salvo Fuente): Versión (PackageManager, sin `buildConfig`), Fuente (`DolarRepository.FUENTE`, pública; fila CLICABLE que abre `https://dolarapi.com` vía `ACTION_VIEW` con try/catch — pulso one-shot como los presionables, SIN flechita) y Creador ("Sebastián Viloria") en filas etiqueta↔valor + divisores `divider`; lema (`ajustes_info_lema`) CENTRADO y pequeño (armónico, sin estirar espacios). Las tres `fillMaxWidth` (margen 24dp estándar de la app), medidas escaladas por `AjustesSizing` según altura de pantalla; margen entre fichas = 24dp (el MISMO de Tasas/Calculadora: weight elástico + `Spacer(24dp)` fijo).
+- **Ajustes (ConfiguracionScreen):** sin título. Cuatro fichas con **3 márgenes idénticos** (`Spacer(weight(1f))` + `Spacer(fichaGap)` en los 3 huecos entre fichas; `AjustesSizing` escala por altura ≥800/≥700/<700dp, sin scroll). Ficha 1 "Añadir Widget" (`pulseClick` 0.97f): ícono a la IZQUIERDA + título centrado; textos descriptivos JUSTIFICADOS; `requestPinAppWidget` si API 26+ y launcher soporta; si no, muestra los pasos manuales (`remember` una vez). Ficha 2 "Personalización" (ver bullet propio). Ficha 3 "Buscar actualización" (`UpdateCheckCard`, `pulseClick` 0.97f): ficha-botón compacta SIN ícono y SOLO con el texto centrado (`titleFontSize`, `SemiBold`), animando cambios de texto con la MISMA transición de `StatusPill` del pie de Tasas (`Buscar actualización` → `Buscando…` → `Ya tienes la última versión` verde / `Sin conexión` rojo 2.5s → `Buscar actualización`, o si hay versión nueva descarga directo mostrando `Descargando actualización… X %` e instala). Ficha 4 fija al pie (sin interacción salvo Fuente): Versión (PackageManager, fija), Fuente (`DolarRepository.FUENTE`, clicable que abre `https://dolarapi.com`), Creador ("Sebastián Viloria") y lema (`ajustes_info_lema`) centrado al cierre.
+- **Ícono de la app por tema:** signo `$` gordito, proporción 1:1, 100% simétrico respecto a `(54, 54)` con 2 barras verticales que asoman arriba y abajo sin cruzar el centro de la "S". Siempre orientado al modo oscuro: fondo plano (`#000000` en Sistema, `#1B2A47` en Azul, `#1A3225` en Verde, `#331B26` en Rosado) + glifo en el tono claro del tema (`#F4F4F5`, `#7CB0FF`, `#45E4AE`, `#FA90C8`). 4 `<activity-alias>` en `AndroidManifest.xml` (`LauncherSistema`, `LauncherAzul`, `LauncherVerde`, `LauncherRosado`) apuntando a `.MainActivity` (que permanece siempre habilitada); el relevo ocurre al salir de la app (`MainActivity.onStop` → `ThemeStore.applyIconIfNeeded`) para no interrumpir la transición de colores en Ajustes.
+- **Actualización propia (`AppUpdater.kt`):** consulta `https://api.github.com/repos/null-entropy/Tasa-BCV-Clean/releases/latest` (`HttpURLConnection` + `org.json`). Revisión automática 1 vez cada 24h (`last_update_check_time`), 2 s después de abrir la app; si hay versión mayor, abre `UpdatePromptDialog` (Cristal, versión + notas + "Actualizar ahora" / "Más tarde"). Descarga el APK en `cacheDir/updates/` y lanza el instalador vía `FileProvider` (`xml/file_paths.xml`).
 - **Calculadora:** `.`=miles visual, `,` decimal (2 dec). `CurrencyVisualTransformation` + `sanitizeInput()`. SIN etiquetas "Monto en…": las siglas (USD/EUR, Bs) viven como `placeholder` NATIVO del TextField dentro de la píldora, al lado izquierdo, DISCRETAS (16sp, gris `muted` — nunca agrandan la cápsula), y aparecen SOLO con el campo vacío (desaparecen al escribir; reaparecen al cambiar de moneda porque los campos se limpian). Selector USD/EUR limpia campos. Cambio de moneda con carrusel horizontal. Dos botones de copiar (uno por campo: ícono `ContentCopy` en círculo elevado con `pulseClick`; copia el valor formateado + Toast). Sin título de encabezado.
-- ProGuard mantiene el modelo (`DolarRate`, `DolarResult`, `DolarUiState`, `SingleRateState` y sus `$*`), `MainActivity`, `DolarWidgetProvider`, `kotlin.Metadata`, `org.json`. Si añades reflexión → añade reglas.
+- ProGuard mantiene el modelo (`DolarRate`, `DolarResult`, `DolarUiState`, `SingleRateState`, `UpdateInfo`, `ManualUpdateState` y sus `$*`), `MainActivity`, `DolarWidgetProvider`, `kotlin.Metadata`, `org.json`. Si añades reflexión → añade reglas.
 
 ## 11. Git (ESTRICTO)
-`origin` privado `https://github.com/null-entropy/Tasa-BCV-Cleam` rama `main`.
+`origin` público `https://github.com/null-entropy/Tasa-BCV-Clean` rama `main`.
 
 **REGLA DOBLE (commit + push SIEMPRE juntos):**
 - Si el usuario NO pidió guardar: al terminar cambios, presentar `git status`/`git diff` resumido y PREGUNTAR si quiere "commit + push de todo a la vez". Prohibido comitear sin preguntar.
@@ -137,14 +142,82 @@ Gotcha de verificación: `apksigner` puede reportar `v1 scheme: false` AUNQUE la
 `.gitignore`: `.gradle/`, `build/`, `app/build/`, `.kotlin/`, `.idea/`, `*.iml`, `.vscode/`, `local.properties`, `keystore/`, `keystore.properties`, `*.apk`, `*.log`, `.DS_Store`.
 
 ## 12. Tareas comunes y diagnóstico
-- **Publicar:** preguntar `versionName`/`versionCode` si el usuario no los dio → subir versión → `copyReleaseToDownloads` → `apksigner verify`. Nunca compilar sin pedido explícito (§6).
+- **Compilar y publicar APK en GitHub Releases (FLUJO ÚNICO AUTOMÁTICO, SIN CARPETA DESCARGAS):**
+  - Preguntar `versionName`/`versionCode` si el usuario no los dio → subir versión en `app/build.gradle.kts` y `AGENTS.md` → `.\gradlew assembleRelease` → `apksigner verify` sobre `app/build/outputs/apk/release/app-release.apk` → `commit + push` a `origin/main` → publicar en GitHub Releases como única versión activa.
+  - **Prohibido acumular versiones:** en GitHub (`null-entropy/Tasa-BCV-Clean`) SIEMPRE debe existir **UNA SOLA release vigente (la última)**. Antes de crear la nueva release es OBLIGATORIO eliminar todas las releases anteriores y borrar todos los tags anteriores (remotos y locales).
+  - **Nota de autenticación en este entorno Windows:** `gh` CLI no tiene sesión propia guardada, pero el administrador de credenciales de Git de Windows SÍ tiene el token válido. Extraerlo siempre con `git credential fill` y usar la API REST de GitHub (o inyectarlo en `$env:GH_TOKEN`). Nunca pedir token al usuario ni guardarlo en archivos.
+  - **Parámetros obligatorios que consumen `AppUpdater.kt` (`/releases/latest`) y el botón de descarga directa de `README.md`:**
+    - `tag_name`: `"v<versionName>"` (ej. `"v4.9.1"`).
+    - `target_commitish`: `"main"` (el commit de esa versión ya debe estar subido a `origin/main`).
+    - `name`: `"Tasa BCV - Clean v<versionName>"`.
+    - `body`: resumen claro y breve en lenguaje llano de las mejoras de la versión (este texto se muestra directo al usuario dentro de `UpdatePromptDialog` en la app; cumplir Regla 0).
+    - `draft`: `false`, `prerelease`: `false`.
+    - Asset adjunto: el archivo firmado `app/build/outputs/apk/release/app-release.apk` subido con `name=TasaBCV-Clean.apk` y `Content-Type: application/vnd.android.package-archive`. Usar el nombre fijo `TasaBCV-Clean.apk` garantiza que el enlace directo de la portada (`https://github.com/null-entropy/Tasa-BCV-Clean/releases/latest/download/TasaBCV-Clean.apk`) descargue siempre la última versión con un solo clic, y `AppUpdater.kt` lo detecta por terminar en `.apk`.
+  - **Script canónico completo (purga todas las releases/tags anteriores + publica la nueva + adjunta el APK desde `app/build/outputs/apk/release/app-release.apk` + verifica):**
+    ```powershell
+    $version = "<versionName>" # ej. "4.9.1"
+    $tag = "v$version"
+    $apkPath = "app/build/outputs/apk/release/app-release.apk"
+    $apkName = "TasaBCV-Clean.apk"
+    $notas = "<resumen breve de mejoras en lenguaje llano para el cartel de la app>"
+    if (!(Test-Path $apkPath)) { throw "No existe el APK firmado: $apkPath" }
+
+    # 1. Obtener token desde Git Credential Manager de Windows
+    $credText = ("protocol=https`nhost=github.com`n`n" | git credential fill 2>$null) | Out-String
+    if ($credText -notmatch "password=([^\r\n]+)") { throw "No se encontró credencial de GitHub" }
+    $token = $Matches[1].Trim()
+    $headers = @{
+        "Authorization" = "Bearer $token"
+        "Accept"        = "application/vnd.github+json"
+        "User-Agent"    = "TasaBCVClean-ReleaseScript"
+    }
+    $repoApi = "https://api.github.com/repos/null-entropy/Tasa-BCV-Clean"
+
+    # 2. Eliminar TODAS las releases anteriores y sus tags (mantener SIEMPRE solo la última)
+    $existingReleases = Invoke-RestMethod -Uri "$repoApi/releases?per_page=100" -Headers $headers -Method Get
+    foreach ($rel in $existingReleases) {
+        Invoke-RestMethod -Uri "$repoApi/releases/$($rel.id)" -Headers $headers -Method Delete
+        if ($rel.tag_name) {
+            try { Invoke-RestMethod -Uri "$repoApi/git/refs/tags/$($rel.tag_name)" -Headers $headers -Method Delete } catch {}
+            git tag -d $rel.tag_name 2>$null
+        }
+    }
+    # Limpiar cualquier otro tag huérfano remoto/local
+    $existingTags = Invoke-RestMethod -Uri "$repoApi/tags?per_page=100" -Headers $headers -Method Get
+    foreach ($t in $existingTags) {
+        try { Invoke-RestMethod -Uri "$repoApi/git/refs/tags/$($t.name)" -Headers $headers -Method Delete } catch {}
+        git tag -d $t.name 2>$null
+    }
+
+    # 3. Crear la nueva release única
+    $payload = @{
+        tag_name         = $tag
+        target_commitish = "main"
+        name             = "Tasa BCV - Clean $tag"
+        body             = $notas
+        draft            = $false
+        prerelease       = $false
+    } | ConvertTo-Json -Compress
+    $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+    $newRelease = Invoke-RestMethod -Uri "$repoApi/releases" -Headers $headers -Method Post -Body $payloadBytes -ContentType "application/json; charset=utf-8"
+
+    # 4. Subir el APK firmado como asset de la release (nombre fijo TasaBCV-Clean.apk)
+    $uploadUrl = "https://uploads.github.com/repos/null-entropy/Tasa-BCV-Clean/releases/$($newRelease.id)/assets?name=$apkName"
+    $asset = Invoke-RestMethod -Uri $uploadUrl -Headers $headers -Method Post -InFile $apkPath -ContentType "application/vnd.android.package-archive"
+
+    # 5. Verificación pública sin credenciales (exactamente 1 release activa y APK accesible)
+    $publicList = Invoke-RestMethod -Uri "$repoApi/releases" -Method Get
+    $latest = Invoke-RestMethod -Uri "$repoApi/releases/latest" -Method Get
+    Write-Output "Total releases activas: $($publicList.Count) | Última: $($latest.tag_name) | APK URL: $($latest.assets[0].browser_download_url)"
+    ```
 - **Añadir moneda (solo si dolarapi la soporta; la región Venezuela NO tiene USDT/criptos):** 1) verificar que dolarapi la soporte; 2) rama en `DolarRepository` para el nuevo endpoint; 3) tercer `SingleRateState` en `DolarUiState`; 4) tercera tarjeta en `TasasScreen`; 5) opción en la calculadora; 6) actualizar este doc.
 - **"No trae datos":** 1) probar los endpoints de dolarapi con curl (§5); 2) si dolarapi cae, la app muestra caché con aviso; 3) revisar `dolar_bcv_prefs`.
 
 ## 13. Checklist release
 - [ ] 3 tabs (Ajustes · Tasas · Calculadora), transición por índices fluida, Tasas inicial
-- [ ] Ajustes: 3 fichas caben SIN scroll (widget / Personalización / info al pie); ficha widget ancla o muestra pasos manuales
-- [ ] Personalización: 4 celdas idénticas con doble tono claro/oscuro; transición de color suave al cambiar tema; banner modo informativo (no tocable)
+- [ ] Ajustes: 4 fichas caben SIN scroll con 3 márgenes idénticos (widget / Personalización / Buscar actualización / info al pie); ficha widget ancla o muestra pasos manuales
+- [ ] Personalización: 4 celdas idénticas con doble tono claro/oscuro; transición de color suave al cambiar tema; banner modo informativo (no tocable); ícono de app cambia al salir según el tema elegido
+- [ ] Ficha Buscar actualización: solo texto centrado con la misma animación del pie de Tasas; revisa, descarga e instala directo o avisa que está al día
 - [ ] Widget tintado por tema elegido (8 fondos) en claro y oscuro, incluso sin abrir la app (reinicio/proceso muerto); toggle USD/EUR funciona
 - [ ] Loading/Loaded/Empty + caché instantánea + pill de estado correcta (actualizado/offline/caché)
 - [ ] Ficha: tap copia la tasa (pulso one-shot + destello); sin botones copiar/compartir
@@ -152,7 +225,7 @@ Gotcha de verificación: `apksigner` puede reportar `v1 scheme: false` AUNQUE la
 - [ ] Odómetro por dígitos sin cortes ni superposiciones
 - [ ] Calculadora no crashea con vacío/letras, formato VE correcto
 - [ ] Widget sin delta: tasa y fecha armónicas; toggle USD/EUR funciona
-- [ ] `copyReleaseToDownloads` BUILD SUCCESSFUL + APK firmado `CN=Dolar BCV` (firma con `apksigner`, versión con `aapt2 dump badging`)
+- [ ] `assembleRelease` BUILD SUCCESSFUL + APK firmado `CN=Dolar BCV` (firma con `apksigner`, versión con `aapt2 dump badging`) + subido como única release activa en GitHub (`TasaBCV-Clean.apk`)
 - [ ] No se subió keystore/properties, versionCode incrementado, ProGuard ok
 - [ ] `AGENTS.md` sigue fiel al código (versiones, archivos, caché, proveedor)
 
