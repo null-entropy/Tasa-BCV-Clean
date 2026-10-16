@@ -20,7 +20,7 @@ Toca el siguiente enlace desde tu teléfono o computadora para descargar directa
 
 * **Tasas oficiales al día:** consulta el dólar y el euro oficial con indicador de subida o bajada respecto al día hábil anterior, fecha de publicación y copia rápida con solo tocar la tarjeta. Funciona incluso sin conexión mostrando el último dato guardado en el teléfono.
 * **Calculadora bidireccional:** convierte al instante de dólares o euros a bolívares y de bolívares a divisas, con formato venezolano (puntos para miles y coma para decimales).
-* **Recuadro para la pantalla de inicio:** consulta la tasa sin abrir la aplicación y alterna entre dólar y euro con un toque.
+* **Widget para la pantalla de inicio:** consulta la tasa sin abrir la aplicación y alterna entre dólar y euro con un toque.
 * **Personalización de color e ícono:** 4 temas de color (**Sistema**, **Azul**, **Verde** y **Rosado**) que se adaptan automáticamente al modo claro u oscuro de tu teléfono y cambian el ícono de la aplicación.
 * **Actualizaciones integradas:** avisa cuando hay una versión nueva y permite descargarla e instalarla sin salir de la aplicación.
 
