@@ -16,7 +16,7 @@ local.properties
 keystore/
 keystore.properties
 
-# APKs entregados (se regeneran con copyReleaseToDownloads)
+# Archivos instalables
 *.apk
 
 # Otros

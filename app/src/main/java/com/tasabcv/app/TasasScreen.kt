@@ -282,9 +282,10 @@ fun CurrencyCard(
 
                     val valueFontSize by animateFloatAsState(
                         targetValue = when {
-                            formatted.length <= 8 -> 52f
-                            formatted.length <= 10 -> 46f
-                            else -> 40f
+                            formatted.length <= 6 -> 52f
+                            formatted.length <= 8 -> 44f
+                            formatted.length <= 9 -> 40f
+                            else -> 34f
                         },
                         animationSpec = MotionSpring,
                         label = "ValueFontSize"
@@ -310,6 +311,8 @@ fun CurrencyCard(
                                 fontSize = 26.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colors.onSurface,
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(bottom = 7.dp)
                             )
                         }

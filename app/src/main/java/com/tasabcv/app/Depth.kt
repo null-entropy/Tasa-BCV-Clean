@@ -7,42 +7,59 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // ---------------------------------------------------------------------------
-// Motor de relieve "Cristal": VIDRIO estático, cero trabajo por frame.
-// El efecto se logra con: relleno translúcido (la alfa de las paletas es el
-// vidrio), degradado diagonal sutil y bisel luminoso de 1px (arista de luz
-// arriba-izq, sombra abajo-der). Sin desenfoque (RenderEffect), que sería
-// costoso y solo API 31+: visualmente equivalente sobre fondos planos.
+// Motor de relieve 3D "Cristal": volumen vertical estático, cero trabajo por
+// frame. La luz cae de arriba hacia abajo:
+//   • Superficie con degradado vertical (más iluminada arriba, con cuerpo abajo).
+//   • Contorno de 1.5dp en 3 paradas verticales (arista superior iluminada ->
+//     costados en el tono medio del propio tema -> base inferior más profunda
+//     que da grosor 3D), teñido siempre con la paleta activa (sin bordes
+//     blancos y negros ajenos al tema).
+//   • Sombra proyectada debajo en los elementos elevados.
 //
-//   glassRaised -> elemento elevado: cristal + arista luminosa + sombra suave.
-//                 Superficies SIEMPRE estáticas en su forma: la respuesta al
-//                 toque la pone pulseClick (pulso one-shot de escala).
-//   glassInset  -> elemento hundido: bisel invertido (pozo), sin sombra.
+//   glassRaised -> elemento elevado 3D (tarjetas, barras, botones).
+//   glassInset  -> hueco hundido 3D (selector segmentado, campos, banner).
 // ---------------------------------------------------------------------------
 
-/** Degradado diagonal del cristal elevado (luz -> sombra). */
+/** Degradado vertical de superficie elevada (luz arriba -> cuerpo abajo). */
 fun raisedBrush(colors: AppColors): Brush =
-    Brush.linearGradient(listOf(colors.surfaceTop, colors.surfaceBottom))
-
-/** Bisel de cristal elevado: arista de luz arriba-izq, sombra abajo-der. */
-fun raisedBorder(colors: AppColors): BorderStroke =
-    BorderStroke(1.dp, Brush.linearGradient(listOf(colors.bevelLight, colors.bevelDark)))
-
-/** Degradado diagonal de los huecos hundidos. */
-fun insetBrush(colors: AppColors): Brush =
-    Brush.linearGradient(listOf(colors.insetTop, colors.insetBottom))
-
-/** Bisel de hueco hundido: sombra arriba-izq, luz abajo-der (invertido). */
-fun insetBorder(colors: AppColors): BorderStroke =
-    BorderStroke(1.dp, Brush.linearGradient(listOf(colors.insetBevelDark, colors.insetBevelLight)))
+    Brush.verticalGradient(listOf(colors.surfaceTop, colors.surfaceBottom))
 
 /**
- * Cristal elevado con sombra proyectada. Orden de modifiers: sombra detrás,
- * luego el relleno translúcido y el bisel encima (el borde pinta sobre el
- * borde del fill).
+ * Contorno 3D de elemento elevado: brillo en la arista superior, transición del
+ * propio tono en los costados y canto inferior más profundo que da relieve.
+ */
+fun raisedBorder(colors: AppColors): BorderStroke {
+    val mid = lerp(colors.bevelLight, colors.bevelDark, 0.5f)
+    return BorderStroke(
+        1.5.dp,
+        Brush.verticalGradient(listOf(colors.bevelLight, mid, colors.bevelDark))
+    )
+}
+
+/** Degradado vertical de los huecos hundidos (sombra arriba -> base abajo). */
+fun insetBrush(colors: AppColors): Brush =
+    Brush.verticalGradient(listOf(colors.insetTop, colors.insetBottom))
+
+/**
+ * Contorno 3D de hueco hundido: sombra interna arriba, transición en los
+ * costados y reflejo suave abajo (relieve invertido).
+ */
+fun insetBorder(colors: AppColors): BorderStroke {
+    val mid = lerp(colors.insetBevelDark, colors.insetBevelLight, 0.5f)
+    return BorderStroke(
+        1.5.dp,
+        Brush.verticalGradient(listOf(colors.insetBevelDark, mid, colors.insetBevelLight))
+    )
+}
+
+/**
+ * Elemento elevado 3D con sombra proyectada. Orden de modifiers: sombra detrás,
+ * luego el relleno con volumen vertical y el contorno 3D encima.
  */
 fun Modifier.glassRaised(colors: AppColors, shape: Shape, elevation: Dp = 10.dp): Modifier =
     this
@@ -50,7 +67,7 @@ fun Modifier.glassRaised(colors: AppColors, shape: Shape, elevation: Dp = 10.dp)
         .background(raisedBrush(colors), shape)
         .border(raisedBorder(colors), shape)
 
-/** Hueco hundido (sin sombra proyectada: el bisel invertido hace el trabajo). */
+/** Hueco hundido 3D (el contorno invertido y el degradado interior dan la profundidad). */
 fun Modifier.glassInset(colors: AppColors, shape: Shape): Modifier =
     this
         .background(insetBrush(colors), shape)

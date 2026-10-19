@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val FieldShape = RoundedCornerShape(16.dp)
+private val QuickAmountPresets = listOf(5, 10, 20, 50)
 
 @Composable
 fun CalculadoraScreen(viewModel: DolarViewModel) {
@@ -229,21 +231,61 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                     }
                                 }
 
-                                Spacer(Modifier.height(32.dp))
-                                Text(
-                                    text = "Referencia: 1 $fieldSymbol = ${Format.number(activeTasa)} Bs",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = colors.muted,
+                                Spacer(Modifier.height(20.dp))
+                                val currencySign = if (usdBase) "$" else "€"
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    textAlign = TextAlign.Center
-                                )
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    QuickAmountPresets.forEach { amount ->
+                                        QuickAmountButton(
+                                            label = "$amount $currencySign",
+                                            modifier = Modifier.weight(1f),
+                                            onClick = {
+                                                val raw = amount.toString()
+                                                baseText = raw
+                                                bsText = formatDoubleToRaw(amount * activeTasa)
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * Botón de atajo rápido (5, 10, 20, 50 $/€): coloca la cantidad en el campo
+ * de divisas y calcula al instante su equivalente en bolívares.
+ */
+@Composable
+private fun QuickAmountButton(
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val colors = appColors
+    Box(
+        modifier = modifier
+            .height(42.dp)
+            .glassRaised(colors, FieldShape, elevation = 5.dp)
+            .pulseClick(pressedScale = 0.94f) {
+                onClick()
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.accent,
+            maxLines = 1
+        )
     }
 }
 

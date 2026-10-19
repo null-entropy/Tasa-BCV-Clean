@@ -79,18 +79,36 @@ fun formatCurrencyDisplay(raw: String): String =
 
 fun sanitizeInput(newValue: String): String {
     val filtered = newValue.filter { it.isDigit() || it == ',' || it == '.' }
-    val standardized = filtered.replace('.', ',')
-    val safeRaw = if (standardized.count { it == ',' } > 1) {
-        standardized.substring(0, standardized.lastIndexOf(','))
-    } else {
-        standardized
+    if (filtered.isEmpty()) return ""
+
+    // Si contiene coma decimal (p. ej. al pegar "1.000,00" o editar un monto ya
+    // formateado), los puntos anteriores son separadores de miles y se descartan;
+    // cualquier separador extra después de la primera coma se ignora.
+    val standardized = when {
+        filtered.contains(',') -> {
+            val commaIndex = filtered.indexOf(',')
+            val intDigits = filtered.substring(0, commaIndex).filter { it.isDigit() }
+            val decRaw = filtered.substring(commaIndex + 1)
+                .takeWhile { it.isDigit() }
+                .take(2)
+            "$intDigits,$decRaw"
+        }
+        filtered.count { it == '.' } > 1 -> {
+            // Varios puntos sin coma (p. ej. "1.000.000"): son puntos de miles.
+            filtered.filter { it.isDigit() }
+        }
+        filtered.contains('.') -> {
+            // Un único punto sin coma: el teclado numérico envió '.' como decimal.
+            val dotIndex = filtered.indexOf('.')
+            val intDigits = filtered.substring(0, dotIndex).filter { it.isDigit() }
+            val decRaw = filtered.substring(dotIndex + 1)
+                .takeWhile { it.isDigit() }
+                .take(2)
+            "$intDigits,$decRaw"
+        }
+        else -> filtered
     }
-    return if (safeRaw.contains(",")) {
-        val parts = safeRaw.split(",")
-        if (parts[1].length > 2) parts[0] + "," + parts[1].take(2) else safeRaw
-    } else {
-        safeRaw
-    }
+    return standardized
 }
 
 fun formatDoubleToRaw(value: Double): String {
