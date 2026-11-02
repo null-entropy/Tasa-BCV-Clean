@@ -123,11 +123,8 @@ fun MainScreen(viewModel: DolarViewModel) {
                         }
                     },
                     height = 64.dp,
-                    // Mismo margen universal que las pantallas: los bordes
-                    // izquierdo y derecho de la barra quedan alineados en línea
-                    // recta con los bordes de todas las fichas de la app.
                     modifier = Modifier
-                        .padding(UniversalGap)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                         .clip(RoundedCornerShape(32.dp))
                 ) { label, _, contentColor ->
                     NavItemContent(

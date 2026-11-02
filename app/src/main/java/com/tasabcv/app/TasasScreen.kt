@@ -87,18 +87,18 @@ fun TasasScreen(viewModel: DolarViewModel) {
                 .fillMaxSize()
                 .widthIn(max = MaxContentWidth)
         ) {
-            val outerH = UniversalGap
-            val topPad = UniversalGap
-            val gap = UniversalGap
+            val outerH = screenOuterPaddingH(maxWidth)
+            val outerV = screenOuterPaddingV(maxHeight)
+            val gap = screenSectionGap(maxHeight)
             val isCompactScreen = maxHeight < 540.dp
             val topBarH = if (isCompactScreen) 50.dp else 60.dp
             val cardW = (maxWidth - outerH * 2).coerceAtLeast(200.dp)
-            val cardH = ((maxHeight - topPad - topBarH - gap * 2) / 2).coerceAtLeast(140.dp)
+            val cardH = ((maxHeight - outerV * 2 - topBarH - gap * 2) / 2).coerceAtLeast(140.dp)
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = outerH, end = outerH, top = topPad),
+                    .padding(horizontal = outerH, vertical = outerV),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 TasasTopBar(
@@ -109,7 +109,7 @@ fun TasasScreen(viewModel: DolarViewModel) {
                 )
 
                 // Los 2 huecos entre los 3 bloques (barra superior, tarjeta USD
-                // y tarjeta EUR) miden EXACTAMENTE el margen universal de la app.
+                // y tarjeta EUR) miden exactamente lo mismo.
                 Spacer(Modifier.height(gap))
 
                 CurrencyCard(
@@ -170,7 +170,7 @@ private fun TasasTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .glassRaised(colors, RoundedCornerShape(CardCornerRadius), elevation = 10.dp)
+            .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
             .padding(horizontal = padH, vertical = padV),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -283,7 +283,7 @@ fun CurrencyCard(
 
     Column(
         modifier = modifier
-            .glassRaised(colors, RoundedCornerShape(CardCornerRadius), elevation = 12.dp)
+            .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
             .then(
                 if (state is SingleRateState.Loaded) {
                     // Pulso one-shot al tocar: sin estado presionado
