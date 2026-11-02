@@ -227,38 +227,26 @@ fun FloatingSegmentedButton(
 
 // ---------------------------------------------------------------------------
 // Marco y escala responsiva compartidos por las 3 pestañas (Ajustes, Tasas y
-// Calculadora): cero desplazamiento, márgenes exteriores idénticos y textos
-// acotados al alto real disponible (nunca se desbordan con letra grande).
+// Calculadora): cero desplazamiento, UN ÚNICO margen universal pequeño y
+// pegadito entre TODOS los elementos de la app y textos acotados al alto real
+// disponible (nunca se desbordan con letra grande).
 // ---------------------------------------------------------------------------
 
 /** Ancho máximo del contenido en pantallas anchas para evitar estiramiento. */
 val MaxContentWidth: Dp = 560.dp
 
-/** Margen horizontal exterior idéntico en las 3 pantallas según el ancho real. */
-fun screenOuterPaddingH(maxWidth: Dp): Dp = when {
-    maxWidth < 340.dp -> 16.dp
-    maxWidth < 370.dp -> 20.dp
-    else -> 24.dp
-}
-
-/** Margen vertical exterior idéntico en las 3 pantallas según el alto real. */
-fun screenOuterPaddingV(maxHeight: Dp): Dp = when {
-    maxHeight < 480.dp -> 8.dp
-    maxHeight < 580.dp -> 12.dp
-    else -> 16.dp
-}
-
 /**
- * Separación vertical entre bloques (Tasas: barra↔USD↔EUR; Calculadora:
- * selector↔ficha) adaptada al alto real disponible.
+ * Margen universal de la aplicación: una sola medida pequeña y pegadita para
+ * TODOS los lados y separaciones de las 3 pantallas (marco exterior, huecos
+ * entre fichas y distancia a la barra inferior de pestañas).
  */
-fun screenSectionGap(maxHeight: Dp): Dp = when {
-    maxHeight < 400.dp -> 8.dp
-    maxHeight < 520.dp -> 12.dp
-    maxHeight < 600.dp -> 16.dp
-    maxHeight < 660.dp -> 20.dp
-    else -> 24.dp
-}
+val UniversalGap: Dp = 8.dp
+
+/** Relleno interior de las fichas (mismo tono pegadito en toda la app). */
+val CardInnerPadding: Dp = 12.dp
+
+/** Redondeo único de todas las fichas de cristal de la app. */
+val CardCornerRadius: Dp = 28.dp
 
 /**
  * Convierte un tamaño base a [TextUnit] permitiendo que crezca con la letra

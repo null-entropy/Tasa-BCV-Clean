@@ -83,40 +83,41 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                 .widthIn(max = MaxContentWidth)
         ) {
             val availH = maxHeight
-            val outerH = screenOuterPaddingH(maxWidth)
-            val outerV = screenOuterPaddingV(availH)
-            val gap = screenSectionGap(availH)
+            val gap = UniversalGap
 
             val selectorHeight = when {
-                availH < 340.dp -> 40.dp
+                availH < 360.dp -> 40.dp
                 availH < 460.dp -> 48.dp
                 else -> 56.dp
             }
-            val cardPadding = if (availH < 340.dp) 12.dp else 16.dp
+            val cardPadding = if (availH < 380.dp) 10.dp else if (availH < 520.dp) 12.dp else 16.dp
             val swapBoxHeight = when {
-                availH < 340.dp -> 26.dp
-                availH < 440.dp -> 36.dp
-                else -> 48.dp
+                availH < 380.dp -> 24.dp
+                availH < 500.dp -> 34.dp
+                else -> 44.dp
             }
-            val swapCircleSize = if (availH < 340.dp) 24.dp else 32.dp
-            val quickGap = when {
-                availH < 340.dp -> 10.dp
-                availH < 440.dp -> 14.dp
-                else -> 20.dp
+            val swapCircleSize = if (availH < 380.dp) 22.dp else 30.dp
+            val quickBtnHeight = when {
+                availH < 380.dp -> 32.dp
+                availH < 500.dp -> 38.dp
+                else -> 42.dp
             }
-            val quickBtnHeight = if (availH < 340.dp) 34.dp else 42.dp
             val fieldFontSize = when {
-                availH < 340.dp -> 18f
-                availH < 440.dp -> 21f
+                availH < 380.dp -> 18f
+                availH < 500.dp -> 21f
                 else -> 24f
             }
-            val copyBtnSize = if (availH < 340.dp) 34.dp else 40.dp
-            val maxTextScale = if (availH >= 520.dp) 1.15f else 1.0f
+            val copyBtnSize = when {
+                availH < 380.dp -> 32.dp
+                availH < 500.dp -> 36.dp
+                else -> 40.dp
+            }
+            val maxTextScale = if (availH >= 620.dp) 1.15f else 1f
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = outerH, vertical = outerV),
+                    .padding(start = UniversalGap, end = UniversalGap, top = UniversalGap),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 FloatingSegmentedButton(
@@ -141,8 +142,14 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                 // Transición direccional tipo carrusel al alternar USD↔EUR:
                 // USD→EUR desliza a la izquierda; EUR→USD a la derecha.
                 // El selector de arriba NO se mueve (solo su indicador interior).
+                // Ocupa TODO el alto restante y centra la ficha: sin huecos
+                // muertos abajo en teléfonos altos.
                 AnimatedContent(
                     targetState = isUsdBase,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
                     transitionSpec = {
                         val direction = if (targetState) {
                             // EUR → USD: desplazar a la derecha.
@@ -191,7 +198,11 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+                                        .glassRaised(
+                                            colors,
+                                            RoundedCornerShape(CardCornerRadius),
+                                            elevation = 12.dp
+                                        )
                                         .padding(cardPadding)
                                 ) {
                                     val fieldSymbol = activeSymbol
@@ -213,7 +224,7 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                             maxFontScale = maxTextScale,
                                             modifier = Modifier.weight(1f)
                                         )
-                                        Spacer(Modifier.width(8.dp))
+                                        Spacer(Modifier.width(UniversalGap))
                                         CopyIconButton(buttonSize = copyBtnSize) {
                                             copyToClipboard(
                                                 context,
@@ -263,7 +274,7 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                             maxFontScale = maxTextScale,
                                             modifier = Modifier.weight(1f)
                                         )
-                                        Spacer(Modifier.width(8.dp))
+                                        Spacer(Modifier.width(UniversalGap))
                                         CopyIconButton(buttonSize = copyBtnSize) {
                                             copyToClipboard(
                                                 context,
@@ -273,11 +284,11 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                                         }
                                     }
 
-                                    Spacer(Modifier.height(quickGap))
+                                    Spacer(Modifier.height(gap))
                                     val currencySign = if (usdBase) "$" else "€"
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(UniversalGap),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         QuickAmountPresets.forEach { amount ->
