@@ -30,24 +30,38 @@ sealed class DolarResult {
  */
 class DolarRepository(context: Context) {
 
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /**
      * "Saludo" de la app ante el proveedor. El número de versión se toma SIEMPRE
-     * del instalable (PackageManager): una sola fuente de verdad, imposible que
-     * se desfase de `versionName` al publicar una versión nueva.
+     * del instalable (PackageManager) de forma diferida (solo cuando realmente
+     * se consulta la red): una sola fuente de verdad y cero trabajo al leer caché.
      */
-    private val userAgent: String = buildUserAgent(context)
+    private val userAgent: String by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        buildUserAgent(appContext)
+    }
 
     fun fetchRate(currency: String): DolarResult {
         val endpoint = if (currency == "EUR") ENDPOINT_DOLARAPI_EUR else ENDPOINT_DOLARAPI_USD
         val rate = fetchDolarApi(endpoint)
         if (rate != null) {
             // Tasa anterior del PROVEEDOR (día publicado inmediatamente antes).
-            // Si la fuente no la aporta, vale la última comparación guardada:
-            // el delta nunca depende de la caché del día anterior.
-            val previous = fetchPrevious(currency, rate.fechaActualizacion)
-                ?: readDouble(keyPrevious(currency))
+            // Si la fecha publicada vigente coincide con la que ya teníamos
+            // guardada y ya existe una tasa anterior válida en caché, se
+            // reutiliza directo sin repetir consultas al historial.
+            val newDatePrefix = rate.fechaActualizacion.take(10)
+            val cachedDatePrefix = prefs.getString(keyFecha(currency), null)?.take(10)
+            val cachedPrevious = readDouble(keyPrevious(currency))?.takeIf { isSane(it) }
+            val previous = if (
+                newDatePrefix.length == 10 &&
+                newDatePrefix == cachedDatePrefix &&
+                cachedPrevious != null
+            ) {
+                cachedPrevious
+            } else {
+                fetchPrevious(currency, rate.fechaActualizacion) ?: cachedPrevious
+            }
             // saveCache devuelve la tasa RESUELTA: cero relecturas de caché tras
             // un fetch exitoso.
             return DolarResult.Success(saveCache(currency, rate.copy(previousPromedio = previous)))
@@ -68,9 +82,9 @@ class DolarRepository(context: Context) {
     fun getCacheTimeMillis(currency: String): Long =
         prefs.getLong(keyCacheTime(currency), 0L)
 
-    /** El mayor `cache_time` entre USD y EUR; 0 si no hay caché. */
+    /** El menor `cache_time` entre USD y EUR; 0 si alguna moneda aún no tiene caché. */
     fun getLastSuccessfulFetchMillis(): Long =
-        maxOf(getCacheTimeMillis("USD"), getCacheTimeMillis("EUR"))
+        minOf(getCacheTimeMillis("USD"), getCacheTimeMillis("EUR"))
 
     /**
      * Tasa vigente: body mínimo (~200 bytes) leído directo y parseado con

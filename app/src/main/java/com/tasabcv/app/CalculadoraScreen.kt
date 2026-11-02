@@ -9,20 +9,21 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.SwapVert
@@ -34,7 +35,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,8 +47,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 private val FieldShape = RoundedCornerShape(16.dp)
 private val QuickAmountPresets = listOf(5, 10, 20, 50)
@@ -61,8 +61,6 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
     var baseText by rememberSaveable { mutableStateOf("") }
     var bsText by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
-
-    val currencyVisual = remember { CurrencyVisualTransformation() }
     val colors = appColors
 
     Box(
@@ -73,181 +71,228 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
                     listOf(colors.backgroundTop, colors.backgroundBottom)
                 )
             )
+            .imePadding(),
+        contentAlignment = Alignment.TopCenter
     ) {
-        // SIN título: el contenido arranca directo para aprovechar el
-        // espacio vertical (coherente con Ajustes, que tampoco lo tiene).
-        Column(
+        // SIN título y SIN scroll: el contenido arranca directo con el mismo
+        // marco exterior y separación entre bloques que Tasas y Ajustes, y se
+        // compacta solo si el teclado reduce el alto disponible.
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .widthIn(max = MaxContentWidth)
         ) {
-            FloatingSegmentedButton(
-                options = listOf(
-                    stringResource(R.string.currency_usd_title),
-                    stringResource(R.string.currency_eur_title)
-                ),
-                selectedIndex = if (isUsdBase) 0 else 1,
-                onOptionSelected = { idx ->
-                    val newIsUsd = idx == 0
-                    if (isUsdBase != newIsUsd) {
-                        isUsdBase = newIsUsd
-                        baseText = ""
-                        bsText = ""
-                    }
-                }
-            )
+            val availH = maxHeight
+            val outerH = screenOuterPaddingH(maxWidth)
+            val outerV = screenOuterPaddingV(availH)
+            val gap = screenSectionGap(availH)
 
-            Spacer(Modifier.height(24.dp))
+            val selectorHeight = when {
+                availH < 340.dp -> 40.dp
+                availH < 460.dp -> 48.dp
+                else -> 56.dp
+            }
+            val cardPadding = if (availH < 340.dp) 12.dp else 16.dp
+            val swapBoxHeight = when {
+                availH < 340.dp -> 26.dp
+                availH < 440.dp -> 36.dp
+                else -> 48.dp
+            }
+            val swapCircleSize = if (availH < 340.dp) 24.dp else 32.dp
+            val quickGap = when {
+                availH < 340.dp -> 10.dp
+                availH < 440.dp -> 14.dp
+                else -> 20.dp
+            }
+            val quickBtnHeight = if (availH < 340.dp) 34.dp else 42.dp
+            val fieldFontSize = when {
+                availH < 340.dp -> 18f
+                availH < 440.dp -> 21f
+                else -> 24f
+            }
+            val copyBtnSize = if (availH < 340.dp) 34.dp else 40.dp
+            val maxTextScale = if (availH >= 520.dp) 1.15f else 1.0f
 
-            // Transición direccional tipo carrusel al alternar USD↔EUR:
-            // USD→EUR desliza a la izquierda; EUR→USD a la derecha.
-            // El selector de arriba NO se mueve (solo su indicador interior).
-            AnimatedContent(
-                targetState = isUsdBase,
-                transitionSpec = {
-                    val direction = if (targetState) {
-                        // EUR → USD: desplazar a la derecha.
-                        AnimatedContentTransitionScope.SlideDirection.Right
-                    } else {
-                        // USD → EUR: desplazar a la izquierda.
-                        AnimatedContentTransitionScope.SlideDirection.Left
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = outerH, vertical = outerV),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                FloatingSegmentedButton(
+                    options = listOf(
+                        stringResource(R.string.currency_usd_title),
+                        stringResource(R.string.currency_eur_title)
+                    ),
+                    selectedIndex = if (isUsdBase) 0 else 1,
+                    height = selectorHeight,
+                    onOptionSelected = { idx ->
+                        val newIsUsd = idx == 0
+                        if (isUsdBase != newIsUsd) {
+                            isUsdBase = newIsUsd
+                            baseText = ""
+                            bsText = ""
+                        }
                     }
-                    (fadeIn(tween(200)) +
-                        slideIntoContainer(direction, animationSpec = MotionSpringIntOffset)) togetherWith
-                        (fadeOut(tween(160)) +
-                            slideOutOfContainer(direction, animationSpec = MotionSpringIntOffset))
-                },
-                label = "CalcCurrencySwitch"
-            ) { usdBase ->
-                val activeState = if (usdBase) uiState.usdState else uiState.eurState
-                val activeSymbol = if (usdBase) "USD" else "EUR"
+                )
 
-                when (activeState) {
-                    is SingleRateState.Loading -> {
-                        Text(
-                            text = "Cargando la tasa de $activeSymbol...",
-                            color = colors.muted,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                    is SingleRateState.Empty -> {
-                        Text(
-                            text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
-                            color = colors.error,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                    is SingleRateState.Loaded -> {
-                        val activeTasa = activeState.rate.promedio
-                        if (activeTasa <= 0.0) {
+                Spacer(Modifier.height(gap))
+
+                // Transición direccional tipo carrusel al alternar USD↔EUR:
+                // USD→EUR desliza a la izquierda; EUR→USD a la derecha.
+                // El selector de arriba NO se mueve (solo su indicador interior).
+                AnimatedContent(
+                    targetState = isUsdBase,
+                    transitionSpec = {
+                        val direction = if (targetState) {
+                            // EUR → USD: desplazar a la derecha.
+                            AnimatedContentTransitionScope.SlideDirection.Right
+                        } else {
+                            // USD → EUR: desplazar a la izquierda.
+                            AnimatedContentTransitionScope.SlideDirection.Left
+                        }
+                        (fadeIn(tween(200)) +
+                            slideIntoContainer(direction, animationSpec = MotionSpringIntOffset)) togetherWith
+                            (fadeOut(tween(160)) +
+                                slideOutOfContainer(direction, animationSpec = MotionSpringIntOffset))
+                    },
+                    label = "CalcCurrencySwitch"
+                ) { usdBase ->
+                    val activeState = if (usdBase) uiState.usdState else uiState.eurState
+                    val activeSymbol = if (usdBase) "USD" else "EUR"
+
+                    when (activeState) {
+                        is SingleRateState.Loading -> {
+                            Text(
+                                text = "Cargando la tasa de $activeSymbol...",
+                                fontSize = 14f.boundedSp(maxTextScale),
+                                color = colors.muted,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        is SingleRateState.Empty -> {
                             Text(
                                 text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
+                                fontSize = 14f.boundedSp(maxTextScale),
                                 color = colors.error,
                                 textAlign = TextAlign.Center
                             )
-                        } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
-                                    .padding(16.dp)
-                            ) {
-                                val fieldSymbol = activeSymbol
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    InsetCalcField(
-                                        value = baseText,
-                                        onValueChange = { newValue ->
-                                            val raw = sanitizeInput(newValue)
-                                            baseText = raw
-                                            val parsed = Format.parseUserInput(raw)
-                                            bsText = if (parsed != null && activeTasa > 0.0) {
-                                                formatDoubleToRaw(parsed * activeTasa)
-                                            } else {
-                                                ""
-                                            }
-                                        },
-                                        currencyVisual = currencyVisual,
-                                        placeholder = fieldSymbol,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    CopyIconButton {
-                                        copyToClipboard(
-                                            context,
-                                            formatCurrencyDisplay(baseText),
-                                            fieldSymbol
-                                        )
-                                    }
-                                }
-
-                                Box(
+                        }
+                        is SingleRateState.Loaded -> {
+                            val activeTasa = activeState.rate.promedio
+                            if (activeTasa <= 0.0) {
+                                Text(
+                                    text = "No hay tasa disponible para $activeSymbol. Verifique su conexión en la pestaña Tasas.",
+                                    fontSize = 14f.boundedSp(maxTextScale),
+                                    color = colors.error,
+                                    textAlign = TextAlign.Center
+                                )
+                            } else {
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(48.dp),
-                                    contentAlignment = Alignment.Center
+                                        .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+                                        .padding(cardPadding)
                                 ) {
+                                    val fieldSymbol = activeSymbol
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        InsetCalcField(
+                                            value = baseText,
+                                            onValueChange = { newValue ->
+                                                val raw = sanitizeInput(newValue)
+                                                baseText = raw
+                                                val parsed = Format.parseUserInput(raw)
+                                                bsText = if (parsed != null && activeTasa > 0.0) {
+                                                    formatDoubleToRaw(parsed * activeTasa)
+                                                } else {
+                                                    ""
+                                                }
+                                            },
+                                            placeholder = fieldSymbol,
+                                            fontSize = fieldFontSize,
+                                            maxFontScale = maxTextScale,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        CopyIconButton(buttonSize = copyBtnSize) {
+                                            copyToClipboard(
+                                                context,
+                                                formatCurrencyDisplay(baseText),
+                                                fieldSymbol
+                                            )
+                                        }
+                                    }
+
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
-                                            .glassRaised(colors, CircleShape, elevation = 4.dp)
-                                            .padding(4.dp),
+                                            .fillMaxWidth()
+                                            .height(swapBoxHeight),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            Icons.Filled.SwapVert,
-                                            contentDescription = null,
-                                            tint = colors.accent,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(swapCircleSize)
+                                                .glassRaised(colors, CircleShape, elevation = 4.dp)
+                                                .padding(4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.SwapVert,
+                                                contentDescription = null,
+                                                tint = colors.accent,
+                                                modifier = Modifier.size(if (availH < 340.dp) 15.dp else 18.dp)
+                                            )
+                                        }
                                     }
-                                }
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    InsetCalcField(
-                                        value = bsText,
-                                        onValueChange = { newValue ->
-                                            val raw = sanitizeInput(newValue)
-                                            bsText = raw
-                                            val parsed = Format.parseUserInput(raw)
-                                            baseText = if (parsed != null && activeTasa > 0.0) {
-                                                formatDoubleToRaw(parsed / activeTasa)
-                                            } else {
-                                                ""
-                                            }
-                                        },
-                                        currencyVisual = currencyVisual,
-                                        placeholder = "Bs",
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    CopyIconButton {
-                                        copyToClipboard(
-                                            context,
-                                            formatCurrencyDisplay(bsText),
-                                            "Bs"
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        InsetCalcField(
+                                            value = bsText,
+                                            onValueChange = { newValue ->
+                                                val raw = sanitizeInput(newValue)
+                                                bsText = raw
+                                                val parsed = Format.parseUserInput(raw)
+                                                baseText = if (parsed != null && activeTasa > 0.0) {
+                                                    formatDoubleToRaw(parsed / activeTasa)
+                                                } else {
+                                                    ""
+                                                }
+                                            },
+                                            placeholder = "Bs",
+                                            fontSize = fieldFontSize,
+                                            maxFontScale = maxTextScale,
+                                            modifier = Modifier.weight(1f)
                                         )
+                                        Spacer(Modifier.width(8.dp))
+                                        CopyIconButton(buttonSize = copyBtnSize) {
+                                            copyToClipboard(
+                                                context,
+                                                formatCurrencyDisplay(bsText),
+                                                "Bs"
+                                            )
+                                        }
                                     }
-                                }
 
-                                Spacer(Modifier.height(20.dp))
-                                val currencySign = if (usdBase) "$" else "€"
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    QuickAmountPresets.forEach { amount ->
-                                        QuickAmountButton(
-                                            label = "$amount $currencySign",
-                                            modifier = Modifier.weight(1f),
-                                            onClick = {
-                                                val raw = amount.toString()
-                                                baseText = raw
-                                                bsText = formatDoubleToRaw(amount * activeTasa)
-                                            }
-                                        )
+                                    Spacer(Modifier.height(quickGap))
+                                    val currencySign = if (usdBase) "$" else "€"
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        QuickAmountPresets.forEach { amount ->
+                                            QuickAmountButton(
+                                                label = "$amount $currencySign",
+                                                buttonHeight = quickBtnHeight,
+                                                maxFontScale = maxTextScale,
+                                                modifier = Modifier.weight(1f),
+                                                onClick = {
+                                                    val raw = amount.toString()
+                                                    baseText = raw
+                                                    bsText = formatDoubleToRaw(amount * activeTasa)
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -266,13 +311,15 @@ fun CalculadoraScreen(viewModel: DolarViewModel) {
 @Composable
 private fun QuickAmountButton(
     label: String,
+    buttonHeight: Dp,
+    maxFontScale: Float,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val colors = appColors
     Box(
         modifier = modifier
-            .height(42.dp)
+            .height(buttonHeight)
             .glassRaised(colors, FieldShape, elevation = 5.dp)
             .pulseClick(pressedScale = 0.94f) {
                 onClick()
@@ -281,7 +328,7 @@ private fun QuickAmountButton(
     ) {
         Text(
             text = label,
-            fontSize = 15.sp,
+            fontSize = 15f.boundedSp(maxFontScale),
             fontWeight = FontWeight.SemiBold,
             color = colors.accent,
             maxLines = 1
@@ -302,8 +349,9 @@ private fun QuickAmountButton(
 private fun InsetCalcField(
     value: String,
     onValueChange: (String) -> Unit,
-    currencyVisual: CurrencyVisualTransformation,
     placeholder: String,
+    fontSize: Float,
+    maxFontScale: Float,
     modifier: Modifier = Modifier
 ) {
     val colors = appColors
@@ -313,24 +361,25 @@ private fun InsetCalcField(
         TextField(
             value = value,
             onValueChange = onValueChange,
-            visualTransformation = currencyVisual,
+            visualTransformation = CurrencyVisualTransformation,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
             shape = FieldShape,
             colors = calcFieldColors(),
             textStyle = TextStyle(
-                fontSize = 24.sp,
+                fontSize = fontSize.boundedSp(maxFontScale),
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Start
             ),
             placeholder = {
                 Text(
                     text = placeholder,
-                    fontSize = 16.sp,
+                    fontSize = 16f.boundedSp(maxFontScale),
                     fontWeight = FontWeight.SemiBold,
                     color = colors.muted,
-                    textAlign = TextAlign.Start
+                    textAlign = TextAlign.Start,
+                    maxLines = 1
                 )
             }
         )
@@ -352,12 +401,12 @@ private fun calcFieldColors() = TextFieldDefaults.colors(
 
 /** Botón circular de copiar: pulso one-shot al tocar (sin estado persistente). */
 @Composable
-private fun CopyIconButton(onClick: () -> Unit) {
+private fun CopyIconButton(buttonSize: Dp, onClick: () -> Unit) {
     val colors = appColors
 
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(buttonSize)
             .glassRaised(colors, CircleShape, elevation = 5.dp)
             .pulseClick {
                 onClick()
@@ -368,7 +417,7 @@ private fun CopyIconButton(onClick: () -> Unit) {
             Icons.Filled.ContentCopy,
             contentDescription = "Copiar",
             tint = colors.accent,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(if (buttonSize < 38.dp) 16.dp else 18.dp)
         )
     }
 }

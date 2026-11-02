@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,12 +53,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -69,6 +70,7 @@ fun TasasScreen(viewModel: DolarViewModel) {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val context = LocalContext.current
     val colors = appColors
+    val fecha = remember(uiState.usdState, uiState.eurState) { updatedDate(uiState) }
 
     Box(
         modifier = Modifier
@@ -77,41 +79,65 @@ fun TasasScreen(viewModel: DolarViewModel) {
                 Brush.verticalGradient(
                     listOf(colors.backgroundTop, colors.backgroundBottom)
                 )
-            )
+            ),
+        contentAlignment = Alignment.TopCenter
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = MaxContentWidth)
         ) {
-            TasasTopBar(
-                fecha = updatedDate(uiState),
-                isRefreshing = isRefreshing,
-                onRefresh = { viewModel.refresh() }
-            )
+            val outerH = screenOuterPaddingH(maxWidth)
+            val outerV = screenOuterPaddingV(maxHeight)
+            val gap = screenSectionGap(maxHeight)
+            val isCompactScreen = maxHeight < 540.dp
+            val topBarH = if (isCompactScreen) 50.dp else 60.dp
+            val cardW = (maxWidth - outerH * 2).coerceAtLeast(200.dp)
+            val cardH = ((maxHeight - outerV * 2 - topBarH - gap * 2) / 2).coerceAtLeast(140.dp)
 
-            Spacer(Modifier.height(24.dp))
-
-            CurrencyCard(
-                title = stringResource(R.string.currency_usd_title),
-                state = uiState.usdState,
-                isRefreshing = isRefreshing,
-                onCopy = { copyRate(context, it, "USD") },
+            Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            )
+                    .fillMaxSize()
+                    .padding(horizontal = outerH, vertical = outerV),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                TasasTopBar(
+                    fecha = fecha,
+                    isRefreshing = isRefreshing,
+                    compact = isCompactScreen,
+                    onRefresh = { viewModel.refresh() }
+                )
 
-            Spacer(Modifier.height(24.dp))
+                // Los 2 huecos entre los 3 bloques (barra superior, tarjeta USD
+                // y tarjeta EUR) miden exactamente lo mismo.
+                Spacer(Modifier.height(gap))
 
-            CurrencyCard(
-                title = stringResource(R.string.currency_eur_title),
-                state = uiState.eurState,
-                isRefreshing = isRefreshing,
-                onCopy = { copyRate(context, it, "EUR") },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            )
+                CurrencyCard(
+                    title = stringResource(R.string.currency_usd_title),
+                    state = uiState.usdState,
+                    isRefreshing = isRefreshing,
+                    cardW = cardW,
+                    cardH = cardH,
+                    onCopy = { copyRate(context, it, "USD") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(gap))
+
+                CurrencyCard(
+                    title = stringResource(R.string.currency_eur_title),
+                    state = uiState.eurState,
+                    isRefreshing = isRefreshing,
+                    cardW = cardW,
+                    cardH = cardH,
+                    onCopy = { copyRate(context, it, "EUR") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -130,27 +156,36 @@ private fun updatedDate(uiState: DolarUiState): String {
  * derecha: círculo elevado que se HUNDE al presionar ([MotionSpring]).
  */
 @Composable
-private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> Unit) {
+private fun TasasTopBar(
+    fecha: String,
+    isRefreshing: Boolean,
+    compact: Boolean,
+    onRefresh: () -> Unit
+) {
     val colors = appColors
+    val buttonSize = if (compact) 38.dp else 44.dp
+    val padV = if (compact) 6.dp else 8.dp
+    val padH = if (compact) 16.dp else 20.dp
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = padH, vertical = padV),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = stringResource(R.string.screen_tasas_updated, fecha),
-            fontSize = 14.sp,
+            fontSize = 14f.boundedSp(maxScale = if (compact) 1.0f else 1.15f),
             fontWeight = FontWeight.Medium,
             color = colors.muted,
+            maxLines = 1,
             modifier = Modifier.weight(1f)
         )
 
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(buttonSize)
                 .glassRaised(colors, CircleShape, elevation = 6.dp)
                 .pulseClick(pressedScale = 0.85f) {
                     if (!isRefreshing) onRefresh()
@@ -168,7 +203,7 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
                     Icons.Filled.Refresh,
                     contentDescription = "Actualizar",
                     tint = colors.accent,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(if (compact) 20.dp else 22.dp)
                 )
             }
         }
@@ -182,15 +217,18 @@ private fun TasasTopBar(fecha: String, isRefreshing: Boolean, onRefresh: () -> U
  * pie). Solo es presionable con tasa cargada (Loaded); en Loading/Empty queda
  * elevada estática.
  *
- * Esqueleto unificado para TODOS los estados: título arriba, zona de tasa
- * expandida (weight 1f), divisor fijo y pie de estado abajo. El divisor y el
- * pie jamás se mueven entre Loading/Empty/Loaded (distribución consistente).
+ * Esqueleto unificado y 100% responsivo para TODOS los estados: título arriba,
+ * zona de tasa expandida (weight 1f), divisor fijo y pie de estado abajo.
+ * Adapta sus alturas y tipografía según el espacio real de la tarjeta para que
+ * nada se corte ni encime en ningún tamaño de teléfono.
  */
 @Composable
 fun CurrencyCard(
     title: String,
     state: SingleRateState,
     isRefreshing: Boolean,
+    cardW: Dp,
+    cardH: Dp,
     onCopy: (DolarRate) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -208,6 +246,41 @@ fun CurrencyCard(
         }
     }
 
+    val cardPadV = when {
+        cardH >= 250.dp -> 20.dp
+        cardH >= 210.dp -> 14.dp
+        else -> 10.dp
+    }
+    val cardPadH = if (cardW < 290.dp) 12.dp else 16.dp
+    val titleSize = when {
+        cardH >= 250.dp -> 18f
+        cardH >= 210.dp -> 16f
+        else -> 15f
+    }
+    val titleGap = when {
+        cardH >= 250.dp -> 12.dp
+        cardH >= 210.dp -> 8.dp
+        else -> 4.dp
+    }
+    val deltaGap = when {
+        cardH >= 250.dp -> 10.dp
+        cardH >= 210.dp -> 6.dp
+        else -> 4.dp
+    }
+    val deltaSlotHeight = if (cardH >= 220.dp) 36.dp else 30.dp
+    val deltaFontSize = if (cardH >= 220.dp) 17f else 14.5f
+    val dividerGap = when {
+        cardH >= 250.dp -> 12.dp
+        cardH >= 210.dp -> 8.dp
+        else -> 6.dp
+    }
+    val footerHeight = when {
+        cardH >= 250.dp -> 48.dp
+        cardH >= 210.dp -> 38.dp
+        else -> 32.dp
+    }
+    val maxTextScale = if (cardH >= 260.dp) 1.15f else 1.0f
+
     Column(
         modifier = modifier
             .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
@@ -223,16 +296,17 @@ fun CurrencyCard(
                     Modifier
                 }
             )
-            .padding(horizontal = 16.dp, vertical = 20.dp),
+            .padding(horizontal = cardPadH, vertical = cardPadV),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = title,
-            fontSize = 18.sp,
+            fontSize = titleSize.boundedSp(maxTextScale),
             fontWeight = FontWeight.SemiBold,
-            color = colors.muted
+            color = colors.muted,
+            maxLines = 1
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(titleGap))
 
         // Zona de tasa: la MISMA zona visual en los 3 estados (sin saltos al
         // terminar de cargar). El divisor y el pie quedan fijos abajo.
@@ -244,49 +318,70 @@ fun CurrencyCard(
         ) {
             when (state) {
                 is SingleRateState.Loading -> {
+                    val spinnerSize = if (cardH < 210.dp) 28.dp else 36.dp
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(spinnerSize),
                             strokeWidth = 3.dp,
                             color = colors.accent
                         )
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(if (cardH < 210.dp) 8.dp else 14.dp))
                         Text(
                             "Cargando...",
-                            fontSize = 14.sp,
+                            fontSize = 14f.boundedSp(maxTextScale),
                             fontWeight = FontWeight.Medium,
-                            color = colors.muted
+                            color = colors.muted,
+                            maxLines = 1
                         )
                     }
                 }
                 is SingleRateState.Empty -> {
+                    val iconSize = if (cardH < 210.dp) 34.dp else 48.dp
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             Icons.Filled.CloudOff,
                             contentDescription = null,
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(iconSize),
                             tint = colors.muted
                         )
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(if (cardH < 210.dp) 8.dp else 14.dp))
                         Text(
                             text = state.errorMessage,
-                            fontSize = 14.sp,
+                            fontSize = 14f.boundedSp(maxTextScale),
                             color = colors.error,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
                         )
                     }
                 }
                 is SingleRateState.Loaded -> {
                     val rate = state.rate
-                    val formatted = Format.number(rate.promedio)
+                    val formatted = remember(rate.promedio) { Format.number(rate.promedio) }
+
+                    val baseSize = when {
+                        formatted.length <= 6 -> 52f
+                        formatted.length <= 8 -> 44f
+                        formatted.length <= 9 -> 40f
+                        else -> 34f
+                    }
+                    // Tope por ancho interior de la tarjeta: dígitos (0.60em),
+                    // separadores (0.30em) + espacio + "Bs" (~0.72em).
+                    val innerWidthDp = (cardW - cardPadH * 2).value
+                    val seps = formatted.count { it == '.' || it == ',' }
+                    val digits = formatted.length - seps
+                    val totalEmUnits = digits * 0.60f + seps * 0.30f + 0.72f
+                    val maxByWidth = ((innerWidthDp - 8f) / totalEmUnits).coerceAtLeast(20f)
+
+                    // Tope por alto disponible en la zona central de la tarjeta.
+                    val centerHeightDp =
+                        (cardH - cardPadV * 2 - 22.dp - titleGap - dividerGap - footerHeight).value
+                    val maxByHeight =
+                        ((centerHeightDp - deltaSlotHeight.value - deltaGap.value) * 0.72f).coerceAtLeast(22f)
+
+                    val targetFontSize = minOf(baseSize, maxByWidth, maxByHeight)
 
                     val valueFontSize by animateFloatAsState(
-                        targetValue = when {
-                            formatted.length <= 6 -> 52f
-                            formatted.length <= 8 -> 44f
-                            formatted.length <= 9 -> 40f
-                            else -> 34f
-                        },
+                        targetValue = targetFontSize,
                         animationSpec = MotionSpring,
                         label = "ValueFontSize"
                     )
@@ -302,25 +397,31 @@ fun CurrencyCard(
                         ) {
                             RollingNumber(
                                 value = rate.promedio,
+                                text = formatted,
                                 fontSize = valueFontSize,
                                 color = colors.onSurface
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 text = "Bs",
-                                fontSize = 26.sp,
+                                fontSize = (valueFontSize * 0.5f).boundedSp(1f),
                                 fontWeight = FontWeight.Bold,
                                 color = colors.onSurface,
                                 maxLines = 1,
                                 softWrap = false,
-                                modifier = Modifier.padding(bottom = 7.dp)
+                                modifier = Modifier.padding(bottom = (valueFontSize * 0.135f).dp)
                             )
                         }
 
                         // Slot del delta SIEMPRE reservado y ocupado: el valor
                         // queda a la misma altura en USD y EUR en cualquier caso.
-                        Spacer(Modifier.height(10.dp))
-                        DeltaSlot(current = rate.promedio, previous = rate.previousPromedio)
+                        Spacer(Modifier.height(deltaGap))
+                        DeltaSlot(
+                            current = rate.promedio,
+                            previous = rate.previousPromedio,
+                            slotHeight = deltaSlotHeight,
+                            fontSize = deltaFontSize
+                        )
                     }
                 }
             }
@@ -328,21 +429,20 @@ fun CurrencyCard(
 
         // Divisor fijo: separa la zona de tasa del pie de estado.
         HorizontalDivider(color = colors.divider)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(dividerGap))
 
         // Pie SIEMPRE presente con la pill de estado de conexión
-        // PERFECTAMENTE centrada en TODOS los estados. El reintento vive en el
-        // círculo de refrescar de la barra superior (siempre visible) y en
-        // onAppResumed al volver a la app.
+        // PERFECTAMENTE centrada en TODOS los estados.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(footerHeight),
             contentAlignment = Alignment.Center
         ) {
             StatusPill(
                 status = connectionStatus(state, isRefreshing),
-                flash = showFlash
+                flash = showFlash,
+                maxFontScale = maxTextScale
             )
         }
     }
@@ -390,7 +490,7 @@ private fun connectionStatus(state: SingleRateState, isRefreshing: Boolean): Con
  * las transiciones usan los muelles compartidos, sin capas ni loops.
  */
 @Composable
-private fun StatusPill(status: ConnectionStatus, flash: Boolean) {
+private fun StatusPill(status: ConnectionStatus, flash: Boolean, maxFontScale: Float) {
     val colors = appColors
     val content = pillContent(status, flash)
     val pillColor = when (content) {
@@ -419,8 +519,8 @@ private fun StatusPill(status: ConnectionStatus, flash: Boolean) {
             label = "StatusPill"
         ) { pill ->
             when (pill) {
-                PillContent.CopyFlash -> CopyFlashRow()
-                is PillContent.Status -> StatusRow(pill.status)
+                PillContent.CopyFlash -> CopyFlashRow(maxFontScale)
+                is PillContent.Status -> StatusRow(pill.status, maxFontScale)
             }
         }
     }
@@ -437,7 +537,7 @@ private fun pillContent(status: ConnectionStatus, flash: Boolean): PillContent =
 
 /** Mensaje del destello: "Tasa copiada" con check, en color de acento. */
 @Composable
-private fun CopyFlashRow() {
+private fun CopyFlashRow(maxFontScale: Float) {
     val colors = appColors
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
@@ -449,49 +549,51 @@ private fun CopyFlashRow() {
         Spacer(Modifier.width(5.dp))
         Text(
             "Tasa copiada",
-            fontSize = 12.sp,
+            fontSize = 12f.boundedSp(maxFontScale),
             fontWeight = FontWeight.SemiBold,
-            color = colors.accent
+            color = colors.accent,
+            maxLines = 1
         )
     }
 }
 
 /** Mensajes de estado de conexión: el color del texto replica el del chip. */
 @Composable
-private fun StatusRow(status: ConnectionStatus) {
+private fun StatusRow(status: ConnectionStatus, maxFontScale: Float) {
     val colors = appColors
     Row(verticalAlignment = Alignment.CenterVertically) {
         when (status) {
             ConnectionStatus.Online -> {
-                StatusText("Actualizado", color = colors.deltaDown)
+                StatusText("Actualizado", color = colors.deltaDown, maxFontScale = maxFontScale)
             }
             ConnectionStatus.Updating -> {
-                StatusText("Actualizando…", color = colors.muted)
+                StatusText("Actualizando…", color = colors.muted, maxFontScale = maxFontScale)
             }
             ConnectionStatus.Connecting -> {
-                StatusText("Conectando…", color = colors.muted)
+                StatusText("Conectando…", color = colors.muted, maxFontScale = maxFontScale)
             }
             ConnectionStatus.OfflineCached -> {
                 StatusIcon(icon = Icons.Filled.WifiOff, tint = colors.error)
                 Spacer(Modifier.width(5.dp))
-                StatusText("Sin conexión; mostrando caché", color = colors.error)
+                StatusText("Sin conexión; mostrando caché", color = colors.error, maxFontScale = maxFontScale)
             }
             ConnectionStatus.Offline -> {
                 StatusIcon(icon = Icons.Filled.WifiOff, tint = colors.error)
                 Spacer(Modifier.width(5.dp))
-                StatusText("Sin conexión; sin caché", color = colors.error)
+                StatusText("Sin conexión; sin caché", color = colors.error, maxFontScale = maxFontScale)
             }
         }
     }
 }
 
 @Composable
-private fun StatusText(text: String, color: Color) {
+private fun StatusText(text: String, color: Color, maxFontScale: Float) {
     Text(
         text = text,
-        fontSize = 12.sp,
+        fontSize = 12f.boundedSp(maxFontScale),
         fontWeight = FontWeight.SemiBold,
-        color = color
+        color = color,
+        maxLines = 1
     )
 }
 
@@ -507,16 +609,21 @@ private fun StatusIcon(icon: ImageVector, tint: Color) {
 }
 
 /**
- * Slot del delta con altura fija SIEMPRE ocupado: chip de flecha de tendencia
+ * Slot del delta con altura adaptada SIEMPRE ocupado: chip de flecha de tendencia
  * (subida/bajada) con la diferencia cuando hay valor previo distinto, o ficha fantasma ("—") neutra con las
  * MISMAS medidas cuando no hay dato con qué comparar. Nunca queda un hueco.
  * La animación solo corre durante la transición: en reposo el chip es
  * estático (cero costo continuo).
  */
 @Composable
-private fun DeltaSlot(current: Double, previous: Double?) {
+private fun DeltaSlot(
+    current: Double,
+    previous: Double?,
+    slotHeight: Dp,
+    fontSize: Float
+) {
     Box(
-        modifier = Modifier.height(36.dp),
+        modifier = Modifier.height(slotHeight),
         contentAlignment = Alignment.Center
     ) {
         AnimatedContent(
@@ -539,9 +646,13 @@ private fun DeltaSlot(current: Double, previous: Double?) {
             label = "DeltaSlot"
         ) { hasDelta ->
             if (hasDelta) {
-                DeltaChip(current = current, previous = previous ?: current)
+                DeltaChip(
+                    current = current,
+                    previous = previous ?: current,
+                    fontSize = fontSize
+                )
             } else {
-                GhostDeltaChip()
+                GhostDeltaChip(fontSize = fontSize)
             }
         }
     }
@@ -553,13 +664,14 @@ private fun DeltaSlot(current: Double, previous: Double?) {
  * (claritos en claro, oscuros en oscuro).
  */
 @Composable
-private fun DeltaChip(current: Double, previous: Double) {
+private fun DeltaChip(current: Double, previous: Double, fontSize: Float) {
     val colors = appColors
     val delta = current - previous
     val isPositive = delta > 0
     val color = if (isPositive) colors.deltaUp else colors.deltaDown
     val trendIcon = if (isPositive) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown
     val sign = if (isPositive) "+" else "-"
+    val padV = if (fontSize < 16f) 3.dp else 5.dp
     Box(
         modifier = Modifier
             .background(color.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
@@ -567,7 +679,7 @@ private fun DeltaChip(current: Double, previous: Double) {
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = padV)
         ) {
             Icon(
                 trendIcon,
@@ -579,8 +691,9 @@ private fun DeltaChip(current: Double, previous: Double) {
             Text(
                 text = "$sign${Format.number(abs(delta))} Bs",
                 color = color,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = fontSize.boundedSp(1f),
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
             )
         }
     }
@@ -592,8 +705,9 @@ private fun DeltaChip(current: Double, previous: Double) {
  * qué comparar" ocupando exactamente su lugar.
  */
 @Composable
-private fun GhostDeltaChip() {
+private fun GhostDeltaChip(fontSize: Float) {
     val colors = appColors
+    val padV = if (fontSize < 16f) 3.dp else 5.dp
     Box(
         modifier = Modifier
             .background(colors.muted.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
@@ -602,9 +716,10 @@ private fun GhostDeltaChip() {
         Text(
             text = "—",
             color = colors.muted,
-            fontSize = 17.sp,
+            fontSize = fontSize.boundedSp(1f),
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = padV)
         )
     }
 }
@@ -618,16 +733,20 @@ private fun GhostDeltaChip() {
  * aunque cambie la cantidad de dígitos.
  */
 @Composable
-private fun RollingNumber(value: Double, fontSize: Float, color: Color) {
-    val text = Format.number(value)
-
-    var previousValue by remember { mutableStateOf(value) }
+private fun RollingNumber(
+    value: Double,
+    text: String,
+    fontSize: Float,
+    color: Color
+) {
+    val previousHolder = remember { doubleArrayOf(value) }
+    val previousValue = previousHolder[0]
     val direction = when {
         value > previousValue -> 1f
         value < previousValue -> -1f
         else -> 0f
     }
-    SideEffect { previousValue = value }
+    SideEffect { previousHolder[0] = value }
 
     Row(
         horizontalArrangement = Arrangement.Center,
@@ -648,8 +767,7 @@ private fun RollingNumber(value: Double, fontSize: Float, color: Color) {
 
 @Composable
 private fun RollingCharSlot(char: Char?, direction: Float, fontSize: Float, color: Color) {
-    val density = LocalDensity.current
-    val em = with(density) { fontSize.sp.toDp() }
+    val em = fontSize.dp
     // Ancho fijo por slot (dígitos ~0.60em, separadores ~0.30em, vacío 0dp):
     // los dígitos no se desplazan horizontalmente al cambiar y el número queda
     // centrado aunque cambie la cantidad de caracteres.
@@ -687,7 +805,7 @@ private fun RollingCharSlot(char: Char?, direction: Float, fontSize: Float, colo
             // slots vacíos: sin cortes verticales ni saltos de layout.
             Text(
                 text = (ch ?: ' ').toString(),
-                fontSize = fontSize.sp,
+                fontSize = fontSize.boundedSp(1f),
                 fontWeight = FontWeight.Bold,
                 color = if (ch != null) color else Color.Transparent,
                 maxLines = 1

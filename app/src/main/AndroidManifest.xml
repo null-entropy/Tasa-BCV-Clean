@@ -20,13 +20,16 @@
         tools:targetApi="34">
 
         <!-- Actividad principal: siempre activa para que el widget y los alias
-             de ícono la abran sin importar el tema elegido. -->
+             de ícono la abran sin importar el tema elegido. Fijada siempre en
+             vertical por diseño. -->
         <activity
             android:name=".MainActivity"
             android:enabled="true"
             android:exported="true"
             android:launchMode="singleTop"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            tools:ignore="LockedOrientationActivity" />
 
         <!-- 4 variantes de ícono en el escritorio según el tema elegido en Ajustes
              (siempre orientadas al modo oscuro). Solo una está activa a la vez. -->

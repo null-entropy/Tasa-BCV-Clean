@@ -33,11 +33,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -126,7 +129,9 @@ fun SlidingSegmentedControl(
         Text(
             text = text,
             color = color,
+            fontSize = 14f.boundedSp(maxScale = 1.12f),
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
             style = MaterialTheme.typography.labelLarge
         )
     }
@@ -207,6 +212,7 @@ fun FloatingSegmentedButton(
     selectedIndex: Int,
     onOptionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    height: Dp = 56.dp,
     cornerRadius: Dp = 32.dp
 ) {
     SlidingSegmentedControl(
@@ -214,7 +220,57 @@ fun FloatingSegmentedButton(
         selectedIndex = selectedIndex,
         onOptionSelected = onOptionSelected,
         modifier = modifier,
-        height = 56.dp,
+        height = height,
         cornerRadius = cornerRadius
     )
 }
+
+// ---------------------------------------------------------------------------
+// Marco y escala responsiva compartidos por las 3 pestañas (Ajustes, Tasas y
+// Calculadora): cero desplazamiento, márgenes exteriores idénticos y textos
+// acotados al alto real disponible (nunca se desbordan con letra grande).
+// ---------------------------------------------------------------------------
+
+/** Ancho máximo del contenido en pantallas anchas para evitar estiramiento. */
+val MaxContentWidth: Dp = 560.dp
+
+/** Margen horizontal exterior idéntico en las 3 pantallas según el ancho real. */
+fun screenOuterPaddingH(maxWidth: Dp): Dp = when {
+    maxWidth < 340.dp -> 16.dp
+    maxWidth < 370.dp -> 20.dp
+    else -> 24.dp
+}
+
+/** Margen vertical exterior idéntico en las 3 pantallas según el alto real. */
+fun screenOuterPaddingV(maxHeight: Dp): Dp = when {
+    maxHeight < 480.dp -> 8.dp
+    maxHeight < 580.dp -> 12.dp
+    else -> 16.dp
+}
+
+/**
+ * Separación vertical entre bloques (Tasas: barra↔USD↔EUR; Calculadora:
+ * selector↔ficha) adaptada al alto real disponible.
+ */
+fun screenSectionGap(maxHeight: Dp): Dp = when {
+    maxHeight < 400.dp -> 8.dp
+    maxHeight < 520.dp -> 12.dp
+    maxHeight < 600.dp -> 16.dp
+    maxHeight < 660.dp -> 20.dp
+    else -> 24.dp
+}
+
+/**
+ * Convierte un tamaño base a [TextUnit] permitiendo que crezca con la letra
+ * de Accesibilidad del sistema solo hasta [maxScale] (calculado según el alto
+ * libre de la pantalla): evita que las pantallas fijas sin scroll se corten.
+ */
+@Composable
+fun Float.boundedSp(maxScale: Float = 1.15f): TextUnit {
+    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(0.85f)
+    val effectiveScale = fontScale.coerceAtMost(maxScale.coerceAtLeast(1f))
+    return ((this * effectiveScale) / fontScale).sp
+}
+
+@Composable
+fun Int.boundedSp(maxScale: Float = 1.15f): TextUnit = toFloat().boundedSp(maxScale)

@@ -16,9 +16,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
@@ -31,9 +31,9 @@ import androidx.core.view.WindowCompat
 // Identidad "Cristal": superficies translúcidas con borde luminoso (Depth.kt).
 //   4 variantes de tema x 2 modos del sistema = 8 paletas.
 //   SISTEMA = Grafito monocromo (tema original de la app).
-//   La transición entre temas interpola TODOS los colores con una sola
-//   fracción animada (MotionSpring): el color fluye, nunca aparece de golpe.
-//   Costo: recompone solo la pantalla visible durante ~500 ms; en reposo, cero.
+//   La transición entre temas anima cada color de la paleta con
+//   animateColorAsState (MotionSpringColor): el color fluye sin saltos.
+//   Costo: recompone solo los lectores de color durante ~500 ms; en reposo, 0.
 // ---------------------------------------------------------------------------
 
 /** Variantes de tema seleccionables en Ajustes. */
@@ -261,7 +261,7 @@ val RosadoDarkColors = AppColors(
     isDark = true
 )
 
-val LocalAppColors = staticCompositionLocalOf { LightAppColors }
+val LocalAppColors = compositionLocalOf { LightAppColors }
 
 /** Colores de la identidad Cristal según el tema activo. */
 val appColors: AppColors
@@ -276,6 +276,7 @@ val appColors: AppColors
 object ThemeStore {
     private const val KEY_VARIANT = "app_theme_variant"
     private var prefs: SharedPreferences? = null
+    private var lastAppliedIconVariant: ThemeVariant? = null
 
     var variant: ThemeVariant by mutableStateOf(ThemeVariant.SISTEMA)
         private set
@@ -318,9 +319,11 @@ object ThemeStore {
      * se interrumpe y, si el ícono ya coincide, no hace nada (costo cero).
      */
     fun applyIconIfNeeded(context: Context) {
+        val target = variant
+        if (lastAppliedIconVariant == target) return
+
         val pm = context.packageManager
         val pkg = context.packageName
-        val target = variant
         val targetComponent = ComponentName(pkg, aliasClassName(target))
         val targetState = pm.getComponentEnabledSetting(targetComponent)
         val isTargetEnabled = targetState == PackageManager.COMPONENT_ENABLED_STATE_ENABLED ||
@@ -333,7 +336,10 @@ object ThemeStore {
                 (candidate == ThemeVariant.SISTEMA && state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT)
         }
 
-        if (isTargetEnabled && !anyOtherEnabled) return
+        if (isTargetEnabled && !anyOtherEnabled) {
+            lastAppliedIconVariant = target
+            return
+        }
 
         // Primero habilitamos el nuevo alias y luego deshabilitamos los demás:
         // así el launcher siempre ve al menos un ícono válido durante el relevo.
@@ -351,6 +357,7 @@ object ThemeStore {
                 )
             }
         }
+        lastAppliedIconVariant = target
     }
 }
 

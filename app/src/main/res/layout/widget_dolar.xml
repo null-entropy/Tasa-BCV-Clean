@@ -6,7 +6,10 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:padding="16dp"
+    android:paddingLeft="14dp"
+    android:paddingRight="14dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp"
     android:gravity="center">
 
     <LinearLayout
@@ -43,7 +46,7 @@
         android:textSize="30sp"
         android:autoSizeTextType="uniform"
         android:autoSizeMaxTextSize="44sp"
-        android:autoSizeMinTextSize="18sp"
+        android:autoSizeMinTextSize="12sp"
         android:fontFamily="@font/poppins_bold"
         android:includeFontPadding="false"
         android:maxLines="1"
@@ -63,6 +66,8 @@
         android:autoSizeMinTextSize="9sp"
         android:fontFamily="@font/poppins_medium"
         android:includeFontPadding="false"
+        android:maxLines="1"
+        android:ellipsize="end"
         tools:targetApi="26" />
 
 </LinearLayout>

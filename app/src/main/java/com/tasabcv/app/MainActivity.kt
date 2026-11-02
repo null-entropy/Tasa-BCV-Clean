@@ -60,7 +60,6 @@ class MainActivity : ComponentActivity() {
                 MainScreen(viewModel)
             }
         }
-        AppUpdater.checkDailyIfNeeded(this)
     }
 
     override fun onResume() {
@@ -194,7 +193,9 @@ private fun NavItemContent(label: String, icon: ImageVector, contentColor: Color
         Text(
             text = label,
             color = contentColor,
+            fontSize = 11f.boundedSp(maxScale = 1.12f),
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
             style = MaterialTheme.typography.labelSmall
         )
     }

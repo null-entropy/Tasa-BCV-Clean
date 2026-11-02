@@ -40,7 +40,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
@@ -476,10 +475,11 @@ fun UpdatePromptDialog(info: UpdateInfo) {
         ) {
             Text(
                 text = stringResource(R.string.update_dialog_title),
-                fontSize = 18.sp,
+                fontSize = 18f.boundedSp(1.15f),
                 fontWeight = FontWeight.SemiBold,
                 color = colors.onSurface,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                maxLines = 1
             )
 
             Spacer(Modifier.height(8.dp))
@@ -492,9 +492,10 @@ fun UpdatePromptDialog(info: UpdateInfo) {
             ) {
                 Text(
                     text = "v${info.versionName}",
-                    fontSize = 13.sp,
+                    fontSize = 13f.boundedSp(1.15f),
                     fontWeight = FontWeight.Bold,
-                    color = colors.accent
+                    color = colors.accent,
+                    maxLines = 1
                 )
             }
 
@@ -504,8 +505,8 @@ fun UpdatePromptDialog(info: UpdateInfo) {
 
             Text(
                 text = info.notes,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
+                fontSize = 13f.boundedSp(1.15f),
+                lineHeight = 18f.boundedSp(1.15f),
                 color = colors.muted,
                 textAlign = TextAlign.Start,
                 modifier = Modifier
@@ -536,10 +537,11 @@ fun UpdatePromptDialog(info: UpdateInfo) {
                     "error" -> {
                         Text(
                             text = stringResource(R.string.update_card_offline),
-                            fontSize = 14.sp,
+                            fontSize = 14f.boundedSp(1.1f),
                             fontWeight = FontWeight.SemiBold,
                             color = colors.error,
                             textAlign = TextAlign.Center,
+                            maxLines = 1,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 10.dp)
@@ -551,10 +553,11 @@ fun UpdatePromptDialog(info: UpdateInfo) {
                                 R.string.update_card_downloading,
                                 downloadProgress ?: 0
                             ),
-                            fontSize = 14.sp,
+                            fontSize = 14f.boundedSp(1.1f),
                             fontWeight = FontWeight.SemiBold,
                             color = colors.accent,
                             textAlign = TextAlign.Center,
+                            maxLines = 1,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 10.dp)
@@ -573,14 +576,15 @@ fun UpdatePromptDialog(info: UpdateInfo) {
                                     .pulseClick(pressedScale = 0.96f) {
                                         AppUpdater.dismissDailyPrompt()
                                     }
-                                    .padding(vertical = 11.dp),
+                                    .padding(horizontal = 8.dp, vertical = 11.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = stringResource(R.string.update_dialog_later),
-                                    fontSize = 13.sp,
+                                    fontSize = 13f.boundedSp(1.05f),
                                     fontWeight = FontWeight.SemiBold,
-                                    color = colors.muted
+                                    color = colors.muted,
+                                    maxLines = 1
                                 )
                             }
 
@@ -591,14 +595,15 @@ fun UpdatePromptDialog(info: UpdateInfo) {
                                     .pulseClick(pressedScale = 0.96f) {
                                         AppUpdater.startDialogUpdate(context)
                                     }
-                                    .padding(vertical = 11.dp),
+                                    .padding(horizontal = 8.dp, vertical = 11.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = stringResource(R.string.update_dialog_now),
-                                    fontSize = 13.sp,
+                                    fontSize = 13f.boundedSp(1.05f),
                                     fontWeight = FontWeight.SemiBold,
-                                    color = colors.accent
+                                    color = colors.accent,
+                                    maxLines = 1
                                 )
                             }
                         }

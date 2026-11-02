@@ -37,8 +37,10 @@ class DolarWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        if (appWidgetIds.isEmpty()) return
+        val views = buildViews(context)
         appWidgetIds.forEach { id ->
-            appWidgetManager.updateAppWidget(id, buildViews(context))
+            appWidgetManager.updateAppWidget(id, views)
         }
     }
 

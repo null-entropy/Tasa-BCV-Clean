@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,47 +49,121 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
- * Medidas del tab Ajustes según la altura de pantalla: tipografía, paddings y
- * alturas escalan JUNTOS para que las cuatro fichas quepan SIEMPRE, proporciona-
- * les y sin scroll. Un preset por franja de altura (calculado 1 vez, costo 0).
+ * Medidas del tab Ajustes según el alto libre REAL de la pestaña y si se
+ * muestran o no los pasos manuales del widget: tipografía, paddings y alturas
+ * escalan JUNTOS para que las cuatro fichas quepan SIEMPRE en vertical,
+ * proporcionales, con 3 márgenes idénticos y sin desplazamiento.
  */
 private data class AjustesSizing(
-    val titleFontSize: Int,
-    val bodyFontSize: Int,
-    val bodyLineHeight: Int,
-    val smallFontSize: Int,
-    val smallLineHeight: Int,
-    val labelFontSize: Int,
-    val bannerTitleSize: Int,
+    val titleFontSize: Float,
+    val bodyFontSize: Float,
+    val bodyLineHeight: Float,
+    val smallFontSize: Float,
+    val smallLineHeight: Float,
+    val labelFontSize: Float,
+    val bannerTitleSize: Float,
     val bannerHeight: Dp,
+    val bannerPaddingV: Dp,
+    val bannerIconBox: Dp,
     val gridCellHeight: Dp,
     val cardPaddingV: Dp,
     val sectionGap: Dp,
     val infoRowV: Dp,
     val infoPaddingV: Dp,
-    val fichaGap: Dp
+    val fichaGap: Dp,
+    val maxFontScale: Float
 )
 
-private fun ajustesSizing(screenHeightDp: Int): AjustesSizing = when {
-    screenHeightDp >= 800 -> AjustesSizing(
-        17, 12, 16, 11, 15, 12, 14, 42.dp, 96.dp, 14.dp, 8.dp, 4.dp, 8.dp, 16.dp
-    )
-    screenHeightDp >= 700 -> AjustesSizing(
-        16, 11, 15, 10, 14, 11, 13, 38.dp, 76.dp, 12.dp, 6.dp, 4.dp, 6.dp, 12.dp
-    )
-    else -> AjustesSizing(
-        14, 10, 13, 9, 12, 9, 12, 34.dp, 64.dp, 9.dp, 4.dp, 3.dp, 5.dp, 8.dp
-    )
+private fun ajustesSizing(availableHeightDp: Int, pinSupported: Boolean): AjustesSizing {
+    // Si el launcher no soporta anclar, la Ficha 1 añade divisor + pasos
+    // manuales (~64dp extra): descontamos esa altura para elegir el preset.
+    val usableHeightDp = if (!pinSupported) availableHeightDp - 64 else availableHeightDp
+    return when {
+        usableHeightDp >= 680 -> AjustesSizing(
+            titleFontSize = 17f,
+            bodyFontSize = 12f,
+            bodyLineHeight = 16f,
+            smallFontSize = 11f,
+            smallLineHeight = 15f,
+            labelFontSize = 12f,
+            bannerTitleSize = 14f,
+            bannerHeight = 42.dp,
+            bannerPaddingV = 12.dp,
+            bannerIconBox = 34.dp,
+            gridCellHeight = 96.dp,
+            cardPaddingV = 14.dp,
+            sectionGap = 8.dp,
+            infoRowV = 4.dp,
+            infoPaddingV = 8.dp,
+            fichaGap = 16.dp,
+            maxFontScale = ((usableHeightDp - 665f) / 600f + 1f).coerceIn(1f, 1.18f)
+        )
+        usableHeightDp >= 575 -> AjustesSizing(
+            titleFontSize = 16f,
+            bodyFontSize = 11f,
+            bodyLineHeight = 15f,
+            smallFontSize = 10f,
+            smallLineHeight = 14f,
+            labelFontSize = 11f,
+            bannerTitleSize = 13f,
+            bannerHeight = 36.dp,
+            bannerPaddingV = 8.dp,
+            bannerIconBox = 32.dp,
+            gridCellHeight = 72.dp,
+            cardPaddingV = 11.dp,
+            sectionGap = 6.dp,
+            infoRowV = 3.dp,
+            infoPaddingV = 6.dp,
+            fichaGap = 10.dp,
+            maxFontScale = ((usableHeightDp - 560f) / 550f + 1f).coerceIn(1f, 1.12f)
+        )
+        usableHeightDp >= 470 -> AjustesSizing(
+            titleFontSize = 14f,
+            bodyFontSize = 10f,
+            bodyLineHeight = 13f,
+            smallFontSize = 9f,
+            smallLineHeight = 12f,
+            labelFontSize = 10f,
+            bannerTitleSize = 12f,
+            bannerHeight = 32.dp,
+            bannerPaddingV = 6.dp,
+            bannerIconBox = 28.dp,
+            gridCellHeight = 56.dp,
+            cardPaddingV = 8.dp,
+            sectionGap = 4.dp,
+            infoRowV = 2.5.dp,
+            infoPaddingV = 5.dp,
+            fichaGap = 8.dp,
+            maxFontScale = 1f
+        )
+        else -> AjustesSizing(
+            titleFontSize = 13f,
+            bodyFontSize = 9.5f,
+            bodyLineHeight = 12f,
+            smallFontSize = 8.5f,
+            smallLineHeight = 11f,
+            labelFontSize = 9f,
+            bannerTitleSize = 11f,
+            bannerHeight = 28.dp,
+            bannerPaddingV = 5.dp,
+            bannerIconBox = 26.dp,
+            gridCellHeight = 46.dp,
+            cardPaddingV = 6.dp,
+            sectionGap = 3.dp,
+            infoRowV = 2.dp,
+            infoPaddingV = 4.dp,
+            fichaGap = 6.dp,
+            maxFontScale = 1f
+        )
+    }
 }
 
 /**
@@ -107,10 +183,6 @@ private fun ajustesSizing(screenHeightDp: Int): AjustesSizing = when {
 fun ConfiguracionScreen() {
     val colors = appColors
     val context = LocalContext.current
-    // La configuración se lee FUERA de remember (lectura componible); el
-    // preset de medidas se calcula una vez por altura de pantalla.
-    val screenHeightDp = LocalConfiguration.current.screenHeightDp
-    val sizing = remember(screenHeightDp) { ajustesSizing(screenHeightDp) }
 
     // ¿El launcher permite anclar widgets? (API 26+). Se consulta UNA vez:
     // cero trabajo repetido por recomposición.
@@ -140,135 +212,157 @@ fun ConfiguracionScreen() {
                 Brush.verticalGradient(
                     listOf(colors.backgroundTop, colors.backgroundBottom)
                 )
-            )
+            ),
+        contentAlignment = Alignment.TopCenter
     ) {
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .widthIn(max = MaxContentWidth)
         ) {
-            // FICHA 1 — Añadir widget: superficie SIEMPRE elevada; el toque
-            // hace el pulso one-shot compartido. Nunca cambia de forma.
-            Box(
+            val availH = maxHeight.value.toInt()
+            val isNarrow = maxWidth < 360.dp
+            val sizing = remember(availH, pinSupported) {
+                ajustesSizing(availH, pinSupported)
+            }
+            val outerH = screenOuterPaddingH(maxWidth)
+            val outerV = screenOuterPaddingV(maxHeight)
+            val cardPaddingH = if (isNarrow) 16.dp else 20.dp
+
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
-                    .pulseClick(pressedScale = 0.97f) {
-                        if (pinSupported) tryPinWidget(context)
-                    }
-                    .padding(horizontal = 20.dp, vertical = sizing.cardPaddingV)
+                    .fillMaxSize()
+                    .padding(horizontal = outerH, vertical = outerV)
             ) {
-                Column {
-                    // Ícono a la IZQUIERDA (no centrado); título "Añadir Widget"
-                    // centrado como encabezado de la ficha.
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Icon(
-                            Icons.Filled.Widgets,
-                            contentDescription = null,
-                            tint = colors.accent,
-                            modifier = Modifier
-                                .size(22.dp)
-                                .align(Alignment.CenterStart)
-                        )
-                        Text(
-                            text = stringResource(R.string.ajustes_widget_title),
-                            fontSize = sizing.titleFontSize.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = colors.onSurface,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                    Spacer(Modifier.height(sizing.sectionGap))
-                    // Justificado: más palabras por línea para que el texto
-                    // quede parejo, sin huecos desproporcionados entre palabras.
-                    Text(
-                        text = stringResource(R.string.ajustes_widget_description),
-                        fontSize = sizing.bodyFontSize.sp,
-                        lineHeight = sizing.bodyLineHeight.sp,
-                        color = colors.muted,
-                        textAlign = TextAlign.Justify,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (!pinSupported) {
-                        // Fallback sin estado transitorio: si el launcher no
-                        // soporta anclar, los pasos manuales viven aquí.
+                // FICHA 1 — Añadir widget: superficie SIEMPRE elevada; el toque
+                // hace el pulso one-shot compartido. Nunca cambia de forma.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
+                        .pulseClick(pressedScale = 0.97f) {
+                            if (pinSupported) tryPinWidget(context)
+                        }
+                        .padding(horizontal = cardPaddingH, vertical = sizing.cardPaddingV)
+                ) {
+                    Column {
+                        // Ícono a la IZQUIERDA (no centrado); título "Añadir Widget"
+                        // centrado con margen lateral para nunca pisar el ícono.
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Icon(
+                                Icons.Filled.Widgets,
+                                contentDescription = null,
+                                tint = colors.accent,
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .align(Alignment.CenterStart)
+                            )
+                            Text(
+                                text = stringResource(R.string.ajustes_widget_title),
+                                fontSize = sizing.titleFontSize.boundedSp(sizing.maxFontScale),
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.onSurface,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .padding(horizontal = 28.dp)
+                            )
+                        }
                         Spacer(Modifier.height(sizing.sectionGap))
-                        HorizontalDivider(color = colors.divider)
-                        Spacer(Modifier.height(sizing.sectionGap))
+                        // Justificado: más palabras por línea para que el texto
+                        // quede parejo, sin huecos desproporcionados entre palabras.
                         Text(
-                            text = stringResource(R.string.ajustes_widget_manual_steps),
-                            fontSize = sizing.smallFontSize.sp,
-                            lineHeight = sizing.smallLineHeight.sp,
+                            text = stringResource(R.string.ajustes_widget_description),
+                            fontSize = sizing.bodyFontSize.boundedSp(sizing.maxFontScale),
+                            lineHeight = sizing.bodyLineHeight.boundedSp(sizing.maxFontScale),
                             color = colors.muted,
                             textAlign = TextAlign.Justify,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        if (!pinSupported) {
+                            // Fallback sin estado transitorio: si el launcher no
+                            // soporta anclar, los pasos manuales viven aquí.
+                            Spacer(Modifier.height(sizing.sectionGap))
+                            HorizontalDivider(color = colors.divider)
+                            Spacer(Modifier.height(sizing.sectionGap))
+                            Text(
+                                text = stringResource(R.string.ajustes_widget_manual_steps),
+                                fontSize = sizing.smallFontSize.boundedSp(sizing.maxFontScale),
+                                lineHeight = sizing.smallLineHeight.boundedSp(sizing.maxFontScale),
+                                color = colors.muted,
+                                textAlign = TextAlign.Justify,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
-            }
 
-            // Los 3 huecos entre las 4 fichas llevan EXACTAMENTE la misma
-            // pareja (Spacer weight(1f) + Spacer fichaGap): el margen entre
-            // todas las fichas es estrictamente idéntico en cualquier pantalla.
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.height(sizing.fichaGap))
+                // Los 3 huecos entre las 4 fichas llevan EXACTAMENTE la misma
+                // pareja (Spacer weight(1f) + Spacer fichaGap): el margen entre
+                // todas las fichas es estrictamente idéntico en cualquier pantalla.
+                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(sizing.fichaGap))
 
-            PersonalizacionCard(sizing)
+                PersonalizacionCard(sizing, cardPaddingH)
 
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.height(sizing.fichaGap))
+                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(sizing.fichaGap))
 
-            UpdateCheckCard(sizing)
+                UpdateCheckCard(sizing, cardPaddingH, isNarrow)
 
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.height(sizing.fichaGap))
+                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(sizing.fichaGap))
 
-            // FICHA 4 — Información fija: no es un botón (sin pulseClick).
-            // Filas etiqueta↔valor + lema centrado como cierre.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
-                    .padding(horizontal = 16.dp, vertical = sizing.infoPaddingV)
-            ) {
-                Column {
-                    InfoRow(
-                        label = stringResource(R.string.ajustes_info_version),
-                        value = versionName,
-                        fontSize = sizing.bodyFontSize,
-                        rowV = sizing.infoRowV
-                    )
-                    HorizontalDivider(color = colors.divider)
-                    InfoRow(
-                        label = stringResource(R.string.ajustes_info_fuente),
-                        value = DolarRepository.FUENTE,
-                        fontSize = sizing.bodyFontSize,
-                        rowV = sizing.infoRowV,
-                        // Fuente clicable: abre el sitio del proveedor en el
-                        // navegador (sin flechita: es el único presionable y
-                        // el pulso one-shot ya lo delata).
-                        onClick = { openFuente(context) }
-                    )
-                    HorizontalDivider(color = colors.divider)
-                    InfoRow(
-                        label = stringResource(R.string.ajustes_info_creador),
-                        value = stringResource(R.string.ajustes_info_creador_nombre),
-                        fontSize = sizing.bodyFontSize,
-                        rowV = sizing.infoRowV
-                    )
-                    HorizontalDivider(color = colors.divider)
-                    // El lema cierra la ficha como texto centrado armonioso.
-                    Text(
-                        text = stringResource(R.string.ajustes_info_lema),
-                        fontSize = sizing.smallFontSize.sp,
-                        lineHeight = sizing.smallLineHeight.sp,
-                        color = colors.muted,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = sizing.sectionGap)
-                    )
+                // FICHA 4 — Información fija: no es un botón (sin pulseClick).
+                // Filas etiqueta↔valor + lema centrado como cierre.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 10.dp)
+                        .padding(horizontal = 16.dp, vertical = sizing.infoPaddingV)
+                ) {
+                    Column {
+                        InfoRow(
+                            label = stringResource(R.string.ajustes_info_version),
+                            value = versionName,
+                            fontSize = sizing.bodyFontSize,
+                            maxFontScale = sizing.maxFontScale,
+                            rowV = sizing.infoRowV
+                        )
+                        HorizontalDivider(color = colors.divider)
+                        InfoRow(
+                            label = stringResource(R.string.ajustes_info_fuente),
+                            value = DolarRepository.FUENTE,
+                            fontSize = sizing.bodyFontSize,
+                            maxFontScale = sizing.maxFontScale,
+                            rowV = sizing.infoRowV,
+                            // Fuente clicable: abre el sitio del proveedor en el
+                            // navegador (sin flechita: es el único presionable y
+                            // el pulso one-shot ya lo delata).
+                            onClick = { openFuente(context) }
+                        )
+                        HorizontalDivider(color = colors.divider)
+                        InfoRow(
+                            label = stringResource(R.string.ajustes_info_creador),
+                            value = stringResource(R.string.ajustes_info_creador_nombre),
+                            fontSize = sizing.bodyFontSize,
+                            maxFontScale = sizing.maxFontScale,
+                            rowV = sizing.infoRowV
+                        )
+                        HorizontalDivider(color = colors.divider)
+                        // El lema cierra la ficha como texto centrado armonioso.
+                        Text(
+                            text = stringResource(R.string.ajustes_info_lema),
+                            fontSize = sizing.smallFontSize.boundedSp(sizing.maxFontScale),
+                            lineHeight = sizing.smallLineHeight.boundedSp(sizing.maxFontScale),
+                            color = colors.muted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = sizing.sectionGap)
+                        )
+                    }
                 }
             }
         }
@@ -283,7 +377,7 @@ fun ConfiguracionScreen() {
  * estrictamente la MISMA animación que el texto del pie de Tasas (StatusPill).
  */
 @Composable
-private fun UpdateCheckCard(sizing: AjustesSizing) {
+private fun UpdateCheckCard(sizing: AjustesSizing, cardPaddingH: Dp, isNarrow: Boolean) {
     val colors = appColors
     val context = LocalContext.current
     val state = AppUpdater.manualState
@@ -295,7 +389,7 @@ private fun UpdateCheckCard(sizing: AjustesSizing) {
             .pulseClick(pressedScale = 0.97f) {
                 AppUpdater.onManualCardClick(context)
             }
-            .padding(horizontal = 20.dp, vertical = sizing.cardPaddingV),
+            .padding(horizontal = cardPaddingH, vertical = sizing.cardPaddingV),
         contentAlignment = Alignment.Center
     ) {
         AnimatedContent(
@@ -321,9 +415,14 @@ private fun UpdateCheckCard(sizing: AjustesSizing) {
                 is ManualUpdateState.Downloading ->
                     stringResource(R.string.update_card_downloading, current.progress) to colors.accent
             }
+            val effectiveFontSize = if (current is ManualUpdateState.Downloading && isNarrow) {
+                (sizing.titleFontSize - 2f).coerceAtLeast(12f)
+            } else {
+                sizing.titleFontSize
+            }
             Text(
                 text = text,
-                fontSize = sizing.titleFontSize.sp,
+                fontSize = effectiveFontSize.boundedSp(sizing.maxFontScale),
                 fontWeight = FontWeight.SemiBold,
                 color = textColor,
                 textAlign = TextAlign.Center,
@@ -340,7 +439,7 @@ private fun UpdateCheckCard(sizing: AjustesSizing) {
  * persiste y repinta el widget al momento.
  */
 @Composable
-private fun PersonalizacionCard(sizing: AjustesSizing) {
+private fun PersonalizacionCard(sizing: AjustesSizing, cardPaddingH: Dp) {
     val colors = appColors
     val context = LocalContext.current
     val variant = ThemeStore.variant
@@ -350,10 +449,10 @@ private fun PersonalizacionCard(sizing: AjustesSizing) {
         modifier = Modifier
             .fillMaxWidth()
             .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
-            .padding(horizontal = 20.dp, vertical = sizing.cardPaddingV)
+            .padding(horizontal = cardPaddingH, vertical = sizing.cardPaddingV)
     ) {
         Column {
-            // Encabezado: pincel a la izquierda + título centrado.
+            // Encabezado: pincel a la izquierda + título centrado con margen.
             Box(modifier = Modifier.fillMaxWidth()) {
                 Icon(
                     Icons.Filled.Brush,
@@ -365,11 +464,14 @@ private fun PersonalizacionCard(sizing: AjustesSizing) {
                 )
                 Text(
                     text = stringResource(R.string.ajustes_personalizacion_title),
-                    fontSize = sizing.titleFontSize.sp,
+                    fontSize = sizing.titleFontSize.boundedSp(sizing.maxFontScale),
                     fontWeight = FontWeight.SemiBold,
                     color = colors.onSurface,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center)
+                    maxLines = 1,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 28.dp)
                 )
             }
 
@@ -380,35 +482,34 @@ private fun PersonalizacionCard(sizing: AjustesSizing) {
             // texto ocupa 2 líneas en pantallas angostas, la burbuja crece y
             // el texto jamás se corta ni sale del bisel. El texto con
             // weight(1f) ocupa solo el ancho restante: nunca se superpone con
-            // el ícono (34dp reservados + separador).
+            // el ícono.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = sizing.bannerHeight)
                     .glassInset(colors, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                    .padding(horizontal = 12.dp, vertical = sizing.bannerPaddingV),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(34.dp).glassInset(colors, CircleShape),
+                    modifier = Modifier
+                        .size(sizing.bannerIconBox)
+                        .glassInset(colors, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Filled.Brightness6,
                         contentDescription = null,
                         tint = colors.accent,
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.ajustes_modo_subtitulo),
-                    // Mismo tamaño del texto explicativo de la ficha widget:
-                    // discreto, gris apagado y justificado.
-                    fontSize = sizing.bodyFontSize.sp,
-                    lineHeight = sizing.bodyLineHeight.sp,
+                    fontSize = sizing.bodyFontSize.boundedSp(sizing.maxFontScale),
+                    lineHeight = sizing.bodyLineHeight.boundedSp(sizing.maxFontScale),
                     fontWeight = FontWeight.SemiBold,
-                    // Mismo gris apagado que el texto explicativo de la ficha widget.
                     color = colors.muted,
                     textAlign = TextAlign.Justify,
                     modifier = Modifier.weight(1f)
@@ -428,28 +529,31 @@ private fun PersonalizacionCard(sizing: AjustesSizing) {
             ) {
                 Text(
                     text = stringResource(R.string.ajustes_temas_titulo),
-                    fontSize = sizing.bannerTitleSize.sp,
+                    fontSize = sizing.bannerTitleSize.boundedSp(sizing.maxFontScale),
                     fontWeight = FontWeight.SemiBold,
-                    color = colors.onSurface
+                    color = colors.onSurface,
+                    maxLines = 1
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ModeIndicator(
                         icon = Icons.Filled.LightMode,
                         label = stringResource(R.string.modo_claro),
                         active = !isDark,
-                        fontSize = sizing.bodyFontSize
+                        fontSize = sizing.bodyFontSize,
+                        maxFontScale = sizing.maxFontScale
                     )
                     Text(
                         text = "/",
-                        fontSize = sizing.bodyFontSize.sp,
+                        fontSize = sizing.bodyFontSize.boundedSp(sizing.maxFontScale),
                         color = colors.muted,
-                        modifier = Modifier.padding(horizontal = 7.dp)
+                        modifier = Modifier.padding(horizontal = 6.dp)
                     )
                     ModeIndicator(
                         icon = Icons.Filled.DarkMode,
                         label = stringResource(R.string.modo_oscuro),
                         active = isDark,
-                        fontSize = sizing.bodyFontSize
+                        fontSize = sizing.bodyFontSize,
+                        maxFontScale = sizing.maxFontScale
                     )
                 }
             }
@@ -483,7 +587,13 @@ private fun PersonalizacionCard(sizing: AjustesSizing) {
 
 /** Indicador ☀/☾ del modo del sistema: activo resaltado, inactivo apagado. */
 @Composable
-private fun ModeIndicator(icon: ImageVector, label: String, active: Boolean, fontSize: Int) {
+private fun ModeIndicator(
+    icon: ImageVector,
+    label: String,
+    active: Boolean,
+    fontSize: Float,
+    maxFontScale: Float
+) {
     val colors = appColors
     val color = if (active) colors.onSurface else colors.muted
     Icon(
@@ -495,9 +605,10 @@ private fun ModeIndicator(icon: ImageVector, label: String, active: Boolean, fon
     Spacer(Modifier.width(4.dp))
     Text(
         text = label,
-        fontSize = fontSize.sp,
+        fontSize = fontSize.boundedSp(maxFontScale),
         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-        color = color
+        color = color,
+        maxLines = 1
     )
 }
 
@@ -529,14 +640,6 @@ private fun ThemePreviewCell(
                 .fillMaxWidth()
                 .height(sizing.gridCellHeight)
                 .clip(shape)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            light.surfaceTop.copy(alpha = 1f),
-                            light.surfaceBottom.copy(alpha = 1f)
-                        )
-                    )
-                )
                 .border(
                     if (selected) 1.5.dp else 1.dp,
                     if (selected) colors.accent else colors.muted.copy(alpha = 0.25f),
@@ -557,8 +660,8 @@ private fun ThemePreviewCell(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(18.dp)
+                        .padding(5.dp)
+                        .size(16.dp)
                         .background(colors.accent, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
@@ -566,18 +669,19 @@ private fun ThemePreviewCell(
                         Icons.Filled.Check,
                         contentDescription = null,
                         tint = colors.backgroundTop,
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
             }
         }
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             text = stringResource(themeLabelRes(variant)),
-            fontSize = sizing.labelFontSize.sp,
+            fontSize = sizing.labelFontSize.boundedSp(sizing.maxFontScale),
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color = if (selected) colors.onSurface else colors.muted,
             textAlign = TextAlign.Center,
+            maxLines = 1,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -597,34 +701,34 @@ private fun PreviewBand(palette: AppColors, modifier: Modifier = Modifier) {
                     )
                 )
             )
-            .padding(horizontal = 9.dp, vertical = 7.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(9.dp)
+                .size(8.dp)
                 .background(palette.accent, CircleShape)
         )
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(5.dp))
         Column(modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.8f)
-                    .height(4.dp)
+                    .height(3.5.dp)
                     .background(palette.muted.copy(alpha = 0.55f), RoundedCornerShape(2.dp))
             )
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(2.5.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.55f)
-                    .height(4.dp)
+                    .height(3.5.dp)
                     .background(palette.muted.copy(alpha = 0.35f), RoundedCornerShape(2.dp))
             )
         }
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(5.dp))
         Box(
             modifier = Modifier
-                .size(width = 14.dp, height = 8.dp)
+                .size(width = 12.dp, height = 7.dp)
                 .background(palette.accent, RoundedCornerShape(4.dp))
         )
     }
@@ -643,7 +747,8 @@ private fun themeLabelRes(variant: ThemeVariant): Int = when (variant) {
 private fun InfoRow(
     label: String,
     value: String,
-    fontSize: Int,
+    fontSize: Float,
+    maxFontScale: Float,
     rowV: Dp,
     onClick: (() -> Unit)? = null
 ) {
@@ -664,15 +769,17 @@ private fun InfoRow(
     ) {
         Text(
             text = label,
-            fontSize = fontSize.sp,
+            fontSize = fontSize.boundedSp(maxFontScale),
             fontWeight = FontWeight.Medium,
-            color = colors.muted
+            color = colors.muted,
+            maxLines = 1
         )
         Text(
             text = value,
-            fontSize = fontSize.sp,
+            fontSize = fontSize.boundedSp(maxFontScale),
             fontWeight = FontWeight.SemiBold,
-            color = colors.onSurface
+            color = colors.onSurface,
+            maxLines = 1
         )
     }
 }
