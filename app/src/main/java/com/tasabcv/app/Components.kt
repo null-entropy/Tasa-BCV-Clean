@@ -234,30 +234,37 @@ fun FloatingSegmentedButton(
 /** Ancho máximo del contenido en pantallas anchas para evitar estiramiento. */
 val MaxContentWidth: Dp = 560.dp
 
+/**
+ * Margen universal único de la aplicación (24.dp, el mismo que separa las
+ * fichas de Dólar y Euro en Tasas y la ficha del Euro de la barra inferior).
+ * Solo se reduce en pantallas muy pequeñas para que nunca se corte nada.
+ */
+val UniversalGap: Dp = 24.dp
+
 /** Margen horizontal exterior idéntico en las 3 pantallas según el ancho real. */
 fun screenOuterPaddingH(maxWidth: Dp): Dp = when {
     maxWidth < 340.dp -> 16.dp
     maxWidth < 370.dp -> 20.dp
-    else -> 24.dp
+    else -> UniversalGap
 }
 
-/** Margen vertical exterior idéntico en las 3 pantallas según el alto real. */
+/**
+ * Margen vertical exterior idéntico en las 3 pantallas (16.dp en pantallas
+ * normales: sumado a los 8.dp superiores de la barra inferior forma
+ * exactamente los 24.dp de UniversalGap entre la última ficha y la barra).
+ */
 fun screenOuterPaddingV(maxHeight: Dp): Dp = when {
     maxHeight < 480.dp -> 8.dp
     maxHeight < 580.dp -> 12.dp
     else -> 16.dp
 }
 
-/**
- * Separación vertical entre bloques (Tasas: barra↔USD↔EUR; Calculadora:
- * selector↔ficha) adaptada al alto real disponible.
- */
+/** Separación vertical entre fichas idéntica en las 3 pantallas (24.dp). */
 fun screenSectionGap(maxHeight: Dp): Dp = when {
     maxHeight < 400.dp -> 8.dp
-    maxHeight < 520.dp -> 12.dp
-    maxHeight < 600.dp -> 16.dp
-    maxHeight < 660.dp -> 20.dp
-    else -> 24.dp
+    maxHeight < 500.dp -> 12.dp
+    maxHeight < 580.dp -> 16.dp
+    else -> UniversalGap
 }
 
 /**

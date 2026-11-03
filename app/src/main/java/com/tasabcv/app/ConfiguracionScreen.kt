@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -57,10 +58,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Medidas del tab Ajustes según el alto libre REAL de la pestaña y si se
- * muestran o no los pasos manuales del widget: tipografía, paddings y alturas
- * escalan JUNTOS para que las cuatro fichas quepan SIEMPRE en vertical,
- * proporcionales, con 3 márgenes idénticos y sin desplazamiento.
+ * Medidas del tab Ajustes calculadas de forma CONTINUA según el alto libre
+ * real de la pestaña y si se muestran o no los pasos manuales del widget:
+ * tipografía, rellenos e interlineados escalan suavemente para que las 4
+ * fichas llenen la pantalla manteniendo SIEMPRE el mismo margen pegadito
+ * universal entre ellas y con la barra inferior, sin desplazamiento.
  */
 private data class AjustesSizing(
     val titleFontSize: Float,
@@ -73,97 +75,35 @@ private data class AjustesSizing(
     val bannerHeight: Dp,
     val bannerPaddingV: Dp,
     val bannerIconBox: Dp,
-    val gridCellHeight: Dp,
     val cardPaddingV: Dp,
     val sectionGap: Dp,
     val infoRowV: Dp,
     val infoPaddingV: Dp,
-    val fichaGap: Dp,
     val maxFontScale: Float
 )
 
 private fun ajustesSizing(availableHeightDp: Int, pinSupported: Boolean): AjustesSizing {
     // Si el launcher no soporta anclar, la Ficha 1 añade divisor + pasos
-    // manuales (~64dp extra): descontamos esa altura para elegir el preset.
-    val usableHeightDp = if (!pinSupported) availableHeightDp - 64 else availableHeightDp
-    return when {
-        usableHeightDp >= 680 -> AjustesSizing(
-            titleFontSize = 17f,
-            bodyFontSize = 12f,
-            bodyLineHeight = 16f,
-            smallFontSize = 11f,
-            smallLineHeight = 15f,
-            labelFontSize = 12f,
-            bannerTitleSize = 14f,
-            bannerHeight = 42.dp,
-            bannerPaddingV = 12.dp,
-            bannerIconBox = 34.dp,
-            gridCellHeight = 96.dp,
-            cardPaddingV = 14.dp,
-            sectionGap = 8.dp,
-            infoRowV = 4.dp,
-            infoPaddingV = 8.dp,
-            fichaGap = 16.dp,
-            maxFontScale = ((usableHeightDp - 665f) / 600f + 1f).coerceIn(1f, 1.18f)
-        )
-        usableHeightDp >= 575 -> AjustesSizing(
-            titleFontSize = 16f,
-            bodyFontSize = 11f,
-            bodyLineHeight = 15f,
-            smallFontSize = 10f,
-            smallLineHeight = 14f,
-            labelFontSize = 11f,
-            bannerTitleSize = 13f,
-            bannerHeight = 36.dp,
-            bannerPaddingV = 8.dp,
-            bannerIconBox = 32.dp,
-            gridCellHeight = 72.dp,
-            cardPaddingV = 11.dp,
-            sectionGap = 6.dp,
-            infoRowV = 3.dp,
-            infoPaddingV = 6.dp,
-            fichaGap = 10.dp,
-            maxFontScale = ((usableHeightDp - 560f) / 550f + 1f).coerceIn(1f, 1.12f)
-        )
-        usableHeightDp >= 470 -> AjustesSizing(
-            titleFontSize = 14f,
-            bodyFontSize = 10f,
-            bodyLineHeight = 13f,
-            smallFontSize = 9f,
-            smallLineHeight = 12f,
-            labelFontSize = 10f,
-            bannerTitleSize = 12f,
-            bannerHeight = 32.dp,
-            bannerPaddingV = 6.dp,
-            bannerIconBox = 28.dp,
-            gridCellHeight = 56.dp,
-            cardPaddingV = 8.dp,
-            sectionGap = 4.dp,
-            infoRowV = 2.5.dp,
-            infoPaddingV = 5.dp,
-            fichaGap = 8.dp,
-            maxFontScale = 1f
-        )
-        else -> AjustesSizing(
-            titleFontSize = 13f,
-            bodyFontSize = 9.5f,
-            bodyLineHeight = 12f,
-            smallFontSize = 8.5f,
-            smallLineHeight = 11f,
-            labelFontSize = 9f,
-            bannerTitleSize = 11f,
-            bannerHeight = 28.dp,
-            bannerPaddingV = 5.dp,
-            bannerIconBox = 26.dp,
-            gridCellHeight = 46.dp,
-            cardPaddingV = 6.dp,
-            sectionGap = 3.dp,
-            infoRowV = 2.dp,
-            infoPaddingV = 4.dp,
-            fichaGap = 6.dp,
-            maxFontScale = 1f
-        )
-    }
+    // manuales (~60dp extra): descontamos esa altura para calcular la escala.
+    val usableHeightDp = if (!pinSupported) availableHeightDp - 60 else availableHeightDp
+    val t = ((usableHeightDp - 470f) / 310f).coerceIn(0f, 1.15f)
+    return AjustesSizing(
+        titleFontSize = (13.5f + 3.5f * t).coerceAtMost(17.5f),
+        bodyFontSize = (9.5f + 2.5f * t).coerceAtMost(12.5f),
+        bodyLineHeight = (12.5f + 3.8f * t).coerceAtMost(16.8f),
+        smallFontSize = (8.5f + 2.5f * t).coerceAtMost(11.2f),
+        smallLineHeight = (11.0f + 4.0f * t).coerceAtMost(15.5f),
+        labelFontSize = (9.5f + 2.5f * t).coerceAtMost(12.2f),
+        bannerTitleSize = (11.5f + 2.5f * t).coerceAtMost(14.2f),
+        bannerHeight = (28f + 16f * t).dp,
+        bannerPaddingV = (5f + 9f * t).dp,
+        bannerIconBox = (26f + 9f * t).dp,
+        cardPaddingV = (6f + 13f * t).dp,
+        sectionGap = (3f + 8f * t).dp,
+        infoRowV = (2f + 4.5f * t).dp,
+        infoPaddingV = (4f + 9f * t).dp,
+        maxFontScale = (1f + 0.14f * t).coerceAtMost(1.15f)
+    )
 }
 
 /**
@@ -176,8 +116,8 @@ private fun ajustesSizing(availableHeightDp: Int, pinSupported: Boolean): Ajuste
  *   3. "Buscar actualización": ficha-botón compacta (solo texto centrado con
  *      la misma transición del pie de Tasas) que busca, descarga e instala.
  *   4. Información fija al pie: versión, fuente, creador y lema.
- * Los 3 huecos entre las 4 fichas usan exactamente la misma pareja
- * (Spacer weight(1f) + Spacer fichaGap): márgenes idénticos y cero scroll.
+ * Las 3 separaciones entre fichas y el marco exterior usan el mismo margen
+ * universal pegadito de toda la app, y cero scroll.
  */
 @Composable
 fun ConfiguracionScreen() {
@@ -227,7 +167,10 @@ fun ConfiguracionScreen() {
             }
             val outerH = screenOuterPaddingH(maxWidth)
             val outerV = screenOuterPaddingV(maxHeight)
+            val gap = screenSectionGap(maxHeight)
             val cardPaddingH = if (isNarrow) 16.dp else 20.dp
+            val infoInnerWidthDp = (maxWidth - outerH * 2 - 32.dp).value.coerceAtLeast(200f)
+            val lemaFontSize = minOf(sizing.smallFontSize, (infoInnerWidthDp / 28.5f).coerceAtLeast(8.5f))
 
             Column(
                 modifier = Modifier
@@ -298,24 +241,27 @@ fun ConfiguracionScreen() {
                     }
                 }
 
-                // Los 3 huecos entre las 4 fichas llevan EXACTAMENTE la misma
-                // pareja (Spacer weight(1f) + Spacer fichaGap): el margen entre
-                // todas las fichas es estrictamente idéntico en cualquier pantalla.
-                Spacer(Modifier.weight(1f))
-                Spacer(Modifier.height(sizing.fichaGap))
+                // Los 3 huecos entre las 4 fichas usan el MISMO margen
+                // universal pegadito que separa las fichas de Tasas, Calculadora
+                // y la barra inferior de pestañas.
+                Spacer(Modifier.height(gap))
 
-                PersonalizacionCard(sizing, cardPaddingH)
+                PersonalizacionCard(
+                    sizing = sizing,
+                    cardPaddingH = cardPaddingH,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
 
-                Spacer(Modifier.weight(1f))
-                Spacer(Modifier.height(sizing.fichaGap))
+                Spacer(Modifier.height(gap))
 
                 UpdateCheckCard(sizing, cardPaddingH, isNarrow)
 
-                Spacer(Modifier.weight(1f))
-                Spacer(Modifier.height(sizing.fichaGap))
+                Spacer(Modifier.height(gap))
 
                 // FICHA 4 — Información fija: no es un botón (sin pulseClick).
-                // Filas etiqueta↔valor + lema centrado como cierre.
+                // Filas etiqueta↔valor + lema centrado en 1 sola línea como cierre.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -351,13 +297,14 @@ fun ConfiguracionScreen() {
                             rowV = sizing.infoRowV
                         )
                         HorizontalDivider(color = colors.divider)
-                        // El lema cierra la ficha como texto centrado armonioso.
+                        // El lema cierra la ficha siempre en 1 sola línea centrada.
                         Text(
                             text = stringResource(R.string.ajustes_info_lema),
-                            fontSize = sizing.smallFontSize.boundedSp(sizing.maxFontScale),
-                            lineHeight = sizing.smallLineHeight.boundedSp(sizing.maxFontScale),
+                            fontSize = lemaFontSize.boundedSp(1f),
                             color = colors.muted,
                             textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            softWrap = false,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = sizing.sectionGap)
@@ -439,19 +386,22 @@ private fun UpdateCheckCard(sizing: AjustesSizing, cardPaddingH: Dp, isNarrow: B
  * persiste y repinta el widget al momento.
  */
 @Composable
-private fun PersonalizacionCard(sizing: AjustesSizing, cardPaddingH: Dp) {
+private fun PersonalizacionCard(
+    sizing: AjustesSizing,
+    cardPaddingH: Dp,
+    modifier: Modifier = Modifier
+) {
     val colors = appColors
     val context = LocalContext.current
     val variant = ThemeStore.variant
     val isDark = colors.isDark
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .glassRaised(colors, RoundedCornerShape(32.dp), elevation = 12.dp)
             .padding(horizontal = cardPaddingH, vertical = sizing.cardPaddingV)
     ) {
-        Column {
+        Column(modifier = Modifier.fillMaxSize()) {
             // Encabezado: pincel a la izquierda + título centrado con margen.
             Box(modifier = Modifier.fillMaxWidth()) {
                 Icon(
@@ -477,12 +427,9 @@ private fun PersonalizacionCard(sizing: AjustesSizing, cardPaddingH: Dp) {
 
             Spacer(Modifier.height(sizing.sectionGap))
 
-            // Banner informativo (NO tocable, sin chevron): ícono + UNA línea
-            // explicativa justificada. La burbuja usa heightIn(min): si el
-            // texto ocupa 2 líneas en pantallas angostas, la burbuja crece y
-            // el texto jamás se corta ni sale del bisel. El texto con
-            // weight(1f) ocupa solo el ancho restante: nunca se superpone con
-            // el ícono.
+            // Banner informativo (NO tocable, sin chevron): ícono + explicación
+            // con alineación natural al inicio para nunca dejar huecos grandes
+            // entre palabras.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -511,7 +458,7 @@ private fun PersonalizacionCard(sizing: AjustesSizing, cardPaddingH: Dp) {
                     lineHeight = sizing.bodyLineHeight.boundedSp(sizing.maxFontScale),
                     fontWeight = FontWeight.SemiBold,
                     color = colors.muted,
-                    textAlign = TextAlign.Justify,
+                    textAlign = TextAlign.Start,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -560,9 +507,13 @@ private fun PersonalizacionCard(sizing: AjustesSizing, cardPaddingH: Dp) {
 
             Spacer(Modifier.height(sizing.sectionGap))
 
-            // Cuadrícula: 4 celdas con weight(1f) => tamaño idéntico garantizado.
+            // Cuadrícula: 4 celdas con weight(1f) que toman el alto libre de la
+            // ficha para que las 4 fichas de Ajustes llenen la pantalla sin
+            // estirar los huecos entre fichas.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ThemeVariant.values().forEach { candidate ->
@@ -570,8 +521,9 @@ private fun PersonalizacionCard(sizing: AjustesSizing, cardPaddingH: Dp) {
                         variant = candidate,
                         selected = candidate == variant,
                         sizing = sizing,
-                        // weight(1f) desde el RowScope: 4 celdas idénticas.
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
                         onSelect = {
                             if (ThemeStore.variant != candidate) {
                                 ThemeStore.select(candidate)
@@ -638,7 +590,7 @@ private fun ThemePreviewCell(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(sizing.gridCellHeight)
+                .weight(1f)
                 .clip(shape)
                 .border(
                     if (selected) 1.5.dp else 1.dp,
@@ -647,14 +599,22 @@ private fun ThemePreviewCell(
                 )
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                PreviewBand(palette = light, modifier = Modifier.weight(1f))
+                PreviewBand(
+                    palette = light,
+                    showEndPill = false,
+                    modifier = Modifier.weight(1f)
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
                         .background(colors.muted.copy(alpha = 0.32f))
                 )
-                PreviewBand(palette = dark, modifier = Modifier.weight(1f))
+                PreviewBand(
+                    palette = dark,
+                    showEndPill = true,
+                    modifier = Modifier.weight(1f)
+                )
             }
             if (selected) {
                 Box(
@@ -689,7 +649,11 @@ private fun ThemePreviewCell(
 
 /** Banda de la previsualización: cristal de esa paleta + mini esqueleto. */
 @Composable
-private fun PreviewBand(palette: AppColors, modifier: Modifier = Modifier) {
+private fun PreviewBand(
+    palette: AppColors,
+    showEndPill: Boolean,
+    modifier: Modifier = Modifier
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -713,24 +677,26 @@ private fun PreviewBand(palette: AppColors, modifier: Modifier = Modifier) {
         Column(modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.8f)
+                    .fillMaxWidth(if (showEndPill) 0.8f else 0.62f)
                     .height(3.5.dp)
                     .background(palette.muted.copy(alpha = 0.55f), RoundedCornerShape(2.dp))
             )
             Spacer(Modifier.height(2.5.dp))
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.55f)
+                    .fillMaxWidth(if (showEndPill) 0.55f else 0.42f)
                     .height(3.5.dp)
                     .background(palette.muted.copy(alpha = 0.35f), RoundedCornerShape(2.dp))
             )
         }
-        Spacer(Modifier.width(5.dp))
-        Box(
-            modifier = Modifier
-                .size(width = 12.dp, height = 7.dp)
-                .background(palette.accent, RoundedCornerShape(4.dp))
-        )
+        if (showEndPill) {
+            Spacer(Modifier.width(5.dp))
+            Box(
+                modifier = Modifier
+                    .size(width = 12.dp, height = 7.dp)
+                    .background(palette.accent, RoundedCornerShape(4.dp))
+            )
+        }
     }
 }
 
