@@ -210,13 +210,14 @@ fun ConfiguracionScreen() {
                             )
                         }
                         Spacer(Modifier.height(sizing.sectionGap))
-                        // Alineación normal a la izquierda para lectura limpia y natural.
+                        // Justificado: más palabras por línea para que el texto
+                        // quede parejo de borde a borde dentro de la ficha.
                         Text(
                             text = stringResource(R.string.ajustes_widget_description),
                             fontSize = sizing.bodyFontSize.boundedSp(sizing.maxFontScale),
                             lineHeight = sizing.bodyLineHeight.boundedSp(sizing.maxFontScale),
                             color = colors.muted,
-                            textAlign = TextAlign.Start,
+                            textAlign = TextAlign.Justify,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

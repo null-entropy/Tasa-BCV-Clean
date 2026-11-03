@@ -124,7 +124,7 @@ fun MainScreen(viewModel: DolarViewModel) {
                     },
                     height = 64.dp,
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .padding(horizontal = 22.dp, vertical = 8.dp)
                         .clip(RoundedCornerShape(32.dp))
                 ) { label, _, contentColor ->
                     NavItemContent(

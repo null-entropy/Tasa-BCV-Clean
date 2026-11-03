@@ -234,25 +234,23 @@ fun FloatingSegmentedButton(
 /** Ancho máximo del contenido en pantallas anchas para evitar estiramiento. */
 val MaxContentWidth: Dp = 560.dp
 
-/**
- * Margen universal único de la aplicación (18.dp, ligeramente más cerrado que
- * los 24.dp anteriores): se aplica por igual en las separaciones entre fichas
- * de las 3 pantallas, en los bordes laterales y entre la última ficha y la
- * barra inferior de pestañas (12.dp + 6.dp = 18.dp).
- */
-val UniversalGap: Dp = 18.dp
+/** Margen horizontal de las fichas en las 3 pantallas (24.dp). */
+val ScreenHorizontalMargin: Dp = 24.dp
+
+/** Margen vertical entre fichas en las 3 pantallas (20.dp). */
+val ScreenVerticalGap: Dp = 20.dp
 
 /** Margen horizontal exterior idéntico en las 3 pantallas según el ancho real. */
 fun screenOuterPaddingH(maxWidth: Dp): Dp = when {
-    maxWidth < 340.dp -> 14.dp
-    maxWidth < 370.dp -> 16.dp
-    else -> UniversalGap
+    maxWidth < 340.dp -> 16.dp
+    maxWidth < 370.dp -> 20.dp
+    else -> ScreenHorizontalMargin
 }
 
 /**
  * Margen vertical exterior idéntico en las 3 pantallas (12.dp en pantallas
- * normales: sumado a los 6.dp superiores de la barra inferior forma
- * exactamente los 18.dp de UniversalGap entre la última ficha y la barra).
+ * normales: sumado a los 8.dp superiores de la barra inferior forma
+ * exactamente los 20.dp de ScreenVerticalGap entre la última ficha y la barra).
  */
 fun screenOuterPaddingV(maxHeight: Dp): Dp = when {
     maxHeight < 480.dp -> 8.dp
@@ -260,12 +258,12 @@ fun screenOuterPaddingV(maxHeight: Dp): Dp = when {
     else -> 12.dp
 }
 
-/** Separación vertical entre fichas idéntica en las 3 pantallas (18.dp). */
+/** Separación vertical entre fichas idéntica en las 3 pantallas (20.dp). */
 fun screenSectionGap(maxHeight: Dp): Dp = when {
     maxHeight < 400.dp -> 8.dp
     maxHeight < 500.dp -> 12.dp
-    maxHeight < 580.dp -> 15.dp
-    else -> UniversalGap
+    maxHeight < 580.dp -> 16.dp
+    else -> ScreenVerticalGap
 }
 
 /**
