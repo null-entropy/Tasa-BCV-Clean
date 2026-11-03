@@ -2,7 +2,7 @@
 
 Aplicación para teléfonos Android que muestra el valor oficial del **dólar (USD)** y del **euro (EUR)** publicados por el Banco Central de Venezuela, junto con una **calculadora rápida** para convertir entre bolívares y divisas.
 
-> **Lema:** *Ser confiable, optimizada, minimalista y sin anuncios.*
+> **Lema:** *Aplicación confiable, ligera y sin anuncios.*
 
 ---
 
