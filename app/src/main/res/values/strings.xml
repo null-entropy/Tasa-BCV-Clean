@@ -13,13 +13,12 @@
     <string name="widget_value_placeholder">—</string>
     <string name="widget_no_data">Sin datos</string>
     <string name="ajustes_widget_title">Añadir Widget</string>
-    <string name="ajustes_widget_description">Coloca la tasa oficial en tu pantalla de inicio: la divisa elegida, su valor y la fecha de actualización. Toca el botón superior del widget para alternar entre dólar y euro.</string>
-    <string name="ajustes_widget_manual_steps">Si tu teléfono no lo permite automáticamente: mantén presionado el escritorio, toca «Widgets», busca Tasa BCV - Clean y arrástralo a la pantalla.</string>
+    <string name="ajustes_widget_description">Toca esta tarjeta para agregar un recuadro en la pantalla principal de tu teléfono y ver el precio del dólar o del euro al instante, sin necesidad de abrir la aplicación. Cuando ya esté puesto en tu pantalla, toca las letras USD o EUR arriba del recuadro para cambiar de moneda.</string>
     <string name="ajustes_info_version">Versión</string>
     <string name="ajustes_info_fuente">Fuente</string>
     <string name="ajustes_info_creador">Creador</string>
     <string name="ajustes_info_creador_nombre">Sebastián Viloria</string>
-    <string name="ajustes_info_lema">Aplicación confiable, optimizada, minimalista y sin anuncios</string>
+    <string name="ajustes_info_lema">Aplicación confiable, ligera y sin anuncios</string>
     <string name="ajustes_personalizacion_title">Personalización</string>
     <string name="ajustes_modo_subtitulo">El tema se adapta al modo de tu dispositivo</string>
     <string name="ajustes_temas_titulo">Temas</string>

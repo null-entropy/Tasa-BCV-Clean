@@ -82,11 +82,8 @@ private data class AjustesSizing(
     val maxFontScale: Float
 )
 
-private fun ajustesSizing(availableHeightDp: Int, pinSupported: Boolean): AjustesSizing {
-    // Si el launcher no soporta anclar, la Ficha 1 añade divisor + pasos
-    // manuales (~60dp extra): descontamos esa altura para calcular la escala.
-    val usableHeightDp = if (!pinSupported) availableHeightDp - 60 else availableHeightDp
-    val t = ((usableHeightDp - 470f) / 310f).coerceIn(0f, 1.15f)
+private fun ajustesSizing(availableHeightDp: Int): AjustesSizing {
+    val t = ((availableHeightDp - 470f) / 310f).coerceIn(0f, 1.15f)
     return AjustesSizing(
         titleFontSize = (13.5f + 3.5f * t).coerceAtMost(17.5f),
         bodyFontSize = (9.5f + 2.5f * t).coerceAtMost(12.5f),
@@ -98,8 +95,8 @@ private fun ajustesSizing(availableHeightDp: Int, pinSupported: Boolean): Ajuste
         bannerHeight = (28f + 16f * t).dp,
         bannerPaddingV = (5f + 9f * t).dp,
         bannerIconBox = (26f + 9f * t).dp,
-        cardPaddingV = (6f + 13f * t).dp,
-        sectionGap = (3f + 8f * t).dp,
+        cardPaddingV = (6f + 12f * t).dp,
+        sectionGap = (3f + 7.5f * t).dp,
         infoRowV = (2f + 4.5f * t).dp,
         infoPaddingV = (4f + 9f * t).dp,
         maxFontScale = (1f + 0.14f * t).coerceAtMost(1.15f)
@@ -110,14 +107,14 @@ private fun ajustesSizing(availableHeightDp: Int, pinSupported: Boolean): Ajuste
  * Tab Ajustes (a la izquierda de Tasas), SIN título: el contenido arranca
  * directo. Cuatro fichas del mismo lenguaje visual (glassRaised 32dp):
  *   1. "Añadir widget": acción principal, arriba; ancla el widget (API 26+)
- *      o muestra los pasos manuales en launchers sin soporte.
+ *      con texto explicativo en alineación normal.
  *   2. "Personalización": banner informativo del modo + selección de tema
  *      (Sistema/Azul/Verde/Rosado) con doble tono claro/oscuro por opción.
  *   3. "Buscar actualización": ficha-botón compacta (solo texto centrado con
  *      la misma transición del pie de Tasas) que busca, descarga e instala.
  *   4. Información fija al pie: versión, fuente, creador y lema.
  * Las 3 separaciones entre fichas y el marco exterior usan el mismo margen
- * universal pegadito de toda la app, y cero scroll.
+ * universal de toda la app, y cero scroll.
  */
 @Composable
 fun ConfiguracionScreen() {
@@ -162,15 +159,15 @@ fun ConfiguracionScreen() {
         ) {
             val availH = maxHeight.value.toInt()
             val isNarrow = maxWidth < 360.dp
-            val sizing = remember(availH, pinSupported) {
-                ajustesSizing(availH, pinSupported)
+            val sizing = remember(availH) {
+                ajustesSizing(availH)
             }
             val outerH = screenOuterPaddingH(maxWidth)
             val outerV = screenOuterPaddingV(maxHeight)
             val gap = screenSectionGap(maxHeight)
             val cardPaddingH = if (isNarrow) 16.dp else 20.dp
             val infoInnerWidthDp = (maxWidth - outerH * 2 - 32.dp).value.coerceAtLeast(200f)
-            val lemaFontSize = minOf(sizing.smallFontSize, (infoInnerWidthDp / 28.5f).coerceAtLeast(8.5f))
+            val lemaFontSize = minOf(sizing.smallFontSize, (infoInnerWidthDp / 21.5f).coerceAtLeast(8.5f))
 
             Column(
                 modifier = Modifier
@@ -213,31 +210,15 @@ fun ConfiguracionScreen() {
                             )
                         }
                         Spacer(Modifier.height(sizing.sectionGap))
-                        // Justificado: más palabras por línea para que el texto
-                        // quede parejo, sin huecos desproporcionados entre palabras.
+                        // Alineación normal a la izquierda para lectura limpia y natural.
                         Text(
                             text = stringResource(R.string.ajustes_widget_description),
                             fontSize = sizing.bodyFontSize.boundedSp(sizing.maxFontScale),
                             lineHeight = sizing.bodyLineHeight.boundedSp(sizing.maxFontScale),
                             color = colors.muted,
-                            textAlign = TextAlign.Justify,
+                            textAlign = TextAlign.Start,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        if (!pinSupported) {
-                            // Fallback sin estado transitorio: si el launcher no
-                            // soporta anclar, los pasos manuales viven aquí.
-                            Spacer(Modifier.height(sizing.sectionGap))
-                            HorizontalDivider(color = colors.divider)
-                            Spacer(Modifier.height(sizing.sectionGap))
-                            Text(
-                                text = stringResource(R.string.ajustes_widget_manual_steps),
-                                fontSize = sizing.smallFontSize.boundedSp(sizing.maxFontScale),
-                                lineHeight = sizing.smallLineHeight.boundedSp(sizing.maxFontScale),
-                                color = colors.muted,
-                                textAlign = TextAlign.Justify,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
                     }
                 }
 
