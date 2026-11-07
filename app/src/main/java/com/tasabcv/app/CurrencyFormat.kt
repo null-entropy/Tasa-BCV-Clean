@@ -101,15 +101,25 @@ fun sanitizeInput(newValue: String): String {
             filtered.filter { it.isDigit() }.take(MAX_INT_DIGITS)
         }
         filtered.contains('.') -> {
-            // Un único punto sin coma: el teclado numérico envió '.' como decimal.
+            // Un punto con exactamente 3 dígitos detrás y una parte entera de
+            // 1-3 dígitos (distinta de cero) es separador de miles: "1.000" -> 1000.
+            // El resto de puntos sueltos son decimales: "36.50" -> 36,50.
+            // Al teclear, el punto se convierte en coma en el primer carácter.
             val dotIndex = filtered.indexOf('.')
             val intDigits = filtered.substring(0, dotIndex)
                 .filter { it.isDigit() }
                 .take(MAX_INT_DIGITS)
             val decRaw = filtered.substring(dotIndex + 1)
                 .takeWhile { it.isDigit() }
-                .take(2)
-            "$intDigits,$decRaw"
+            val normalizedInt = intDigits.trimStart('0').ifEmpty { "0" }
+            val isThousands = normalizedInt.length in 1..3 &&
+                normalizedInt != "0" &&
+                decRaw.length == 3
+            if (isThousands) {
+                (normalizedInt + decRaw).take(MAX_INT_DIGITS)
+            } else {
+                "$normalizedInt,${decRaw.take(2)}"
+            }
         }
         else -> filtered.take(MAX_INT_DIGITS)
     }

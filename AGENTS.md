@@ -23,14 +23,15 @@
 
 ## 2. Entorno y comandos
 
-- JDK 17. SDK único: `C:\Android\Sdk` (`sdk.dir` en `local.properties`, barras normales). `android.overridePathCheck=true` ya resuelve la ruta no-ASCII.
+- JDK 17. SDK único: `C:\Android\Sdk`. `local.properties` puede traer la ruta escapada (`sdk.dir=C\:\\Android\\Sdk`) o con barras normales; ambas funcionan. `android.overridePathCheck=true` ya resuelve la ruta con espacios.
 - **STUDIO-FREE:** no abrir con Android Studio; no debe existir `.idea/` ni artefactos de Studio.
 - Kotlin 1.9.24 · `kotlinCompilerExtensionVersion` 1.5.14 · AGP 8.5.2 · Gradle 8.7 · compileSdk/targetSdk 34 · build-tools 34.0.0 · minSdk 24 · Compose BOM 2024.06.00 + Material3.
 - Preparar entrega: `.\gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
 - **No hay pruebas automáticas:** `app/src` solo contiene `main`. No busques `gradlew test`; la verificación real es compilar, verificar la firma y probar en un teléfono.
+- No hay CI ni workflows: nada se valida automáticamente al subir cambios; la verificación es local.
 - Lint: `abortOnError=false`; desactivados `UnusedResources`, `IconMissingDensityFolder`, `Typos`, `Overdraw`.
-- Versión actual: `versionCode 50 / versionName 4.9.9` en `app/build.gradle.kts`. Cada publicación exige `versionCode` mayor. Nunca asumas los números: si el usuario no los dio, pregúntalos.
-- Windows puede dañar acentos y flechas al pasar por la pantalla de comandos: guarda todo en UTF-8 y revisa que no aparezcan caracteres raros.
+- Versión actual: `versionCode 51 / versionName 4.9.10` en `app/build.gradle.kts`. Cada publicación exige `versionCode` mayor. Nunca asumas los números: si el usuario no los dio, pregúntalos.
+- La pantalla de comandos de Windows muestra acentos y flechas como caracteres raros aunque el archivo esté bien en UTF-8; no reescribas un archivo solo por lo que veas ahí. Guarda UTF-8 y verifica con el editor.
 
 ## 3. Arquitectura y datos
 
@@ -59,10 +60,10 @@ Compose collectAsState() → DolarViewModel → DolarRepository → HTTP GET (Ht
 
 ## 4. Límites técnicos
 
-- Red/JSON: **`HttpURLConnection` + `org.json` únicamente**. No Retrofit, OkHttp ni Gson. El `org.json` del SDK no acepta `Reader`: lee el `InputStream` directo y parsea con `JSONObject`.
+- Red/JSON: **`HttpURLConnection` + `org.json` únicamente**. No Retrofit, OkHttp ni Gson. `JSONObject` no acepta `InputStream` ni `Reader`: convierte el cuerpo a `String` y parsea con `JSONObject(body)`.
 - No añadir dependencias (ni Firebase/analytics/ads) sin justificar el costo y sin actualizar este archivo.
-- ProGuard mantiene el modelo (`DolarRate`, `DolarResult`, `DolarUiState`, `SingleRateState`, `UpdateInfo`, `ManualUpdateState` y sus `$*`), `MainActivity`, `DolarWidgetProvider`, `kotlin.Metadata` y `org.json`. Si añades reflexión, añade reglas.
-- Nombre visible `Tasa BCV - Clean`; permisos solo `INTERNET`, `ACCESS_NETWORK_STATE` y `REQUEST_INSTALL_PACKAGES` (actualización propia). No añadir permisos sin necesidad.
+- ProGuard mantiene el modelo (`DolarRate`, `DolarResult`, `DolarUiState`, `SingleRateState`, `UpdateInfo`, `ManualUpdateState` y sus `$*`), `MainActivity`, `DolarWidgetProvider` y `kotlin.Metadata`; `org.json` solo lleva `dontwarn` porque es del sistema. Si añades reflexión, añade reglas.
+- Nombre visible `Tasa BCV - Clean`; permisos declarados: `INTERNET`, `ACCESS_NETWORK_STATE` (hoy no se consulta) y `REQUEST_INSTALL_PACKAGES` (actualización propia). No añadir permisos sin necesidad.
 - Comentarios en español, estilo Kotlin oficial, opt-ins `ExperimentalMaterial3Api`/`ExperimentalFoundationApi`.
 
 ## 5. Invariantes de interfaz
@@ -70,6 +71,7 @@ Compose collectAsState() → DolarViewModel → DolarRepository → HTTP GET (Ht
 - Edge-to-edge; orientación **bloqueada en vertical**; **cero scroll** en las 3 pantallas. Todas usan `BoxWithConstraints`, `MaxContentWidth = 560.dp` y tipografía acotada (`boundedSp`).
 - Márgenes **adaptables**, no fijos: horizontal 24 dp normal, 20 dp si el ancho <370 dp, 16 dp si <340 dp; separación vertical 20 dp normal, 16/12/8 dp en pantallas bajas; barra inferior con 22 dp laterales. Usa las funciones de `Components.kt`; no las copies a mano.
 - Transición de pestañas por **índice** (`routeIndex`: ajustes 0 · tasas 1 · calculadora 2), nunca por texto de ruta.
+- El ícono de cada pestaña se elige comparando la etiqueta visible en `NavItemContent` (`when (label)`), no el índice. Si cambias un texto de pestaña, actualiza ese `when` o el ícono caerá en el genérico.
 - **Un solo lenguaje de movimiento:** `MotionSpring` (0.9/350) y `PopSpring` (0.75/420) de `Components.kt`; fades de 140–200 ms. Prohibido crear muelles ad-hoc. `MotionSpringColor` es el único de color.
 - `pulseClick`: pulso **one-shot**; detección con `Modifier.clickable` (indication null); `graphicsLayer` sin recomposiciones. **Nunca reintroduzcas el estado "presionado" persistente**: es la familia de fallas b/414319919 y b/186223077; el valor siempre debe converger a 1f.
 - Cristal 3D: degradado vertical estático + contorno de 3 paradas + sombra. **Sin `RenderEffect` ni blur** (caro y solo API 31+).
@@ -80,6 +82,7 @@ Compose collectAsState() → DolarViewModel → DolarRepository → HTTP GET (Ht
 - Tasas: sin botones de copiar/compartir. Tocar la ficha copia la tasa (`pulseClick` 0.97f) y muestra "Tasa copiada" ~1.2 s. Pill de estado siempre centrada; **no hay botón "Reintentar"** (el refresco vive en la barra superior y en `onAppResumed`). El chip de delta siempre ocupa su espacio: ▲/▼ real o "—" fantasma.
 - Ajustes: sin título, 4 fichas, 3 separaciones iguales, sin scroll. La ficha del widget llama a `requestPinAppWidget` si el launcher lo soporta; **si no lo soporta, el toque no hace nada** (no hay pantalla de pasos manuales). La ficha de actualización solo muestra texto animado. La ficha de información cierra con el lema en 1 línea.
 - Calculadora: `.` = miles, `,` = decimales (2), máximo 12 dígitos enteros; `CurrencyVisualTransformation` + `sanitizeInput()`; sin etiquetas "Monto en…" (las siglas son placeholder); el selector limpia campos; 2 botones de copiar y 4 atajos (5/10/20/50); sin scroll y con `imePadding`.
+- `sanitizeInput()` trata un punto con exactamente 3 dígitos detrás y parte entera de 1-3 dígitos (distinta de cero) como separador de miles: `1.000` → `1000`. El resto de puntos sueltos son decimales: `36.50` → `36,50` y `0.500` → `0,50`. Al teclear, el punto se convierte en coma en el primer carácter, así que ese caso solo aparece al pegar o autocompletar.
 - Actualización propia: `https://api.github.com/repos/null-entropy/Tasa-BCV-Clean/releases/latest`; revisión cada 24 h, 2 s después de abrir; **404 = al día, no "sin conexión"**; descarga en `cacheDir/updates/` e instala con `FileProvider`; si falta permiso de orígenes desconocidos, se reanuda en `MainActivity.onResume`.
 
 ## 6. Publicar versión y firma
@@ -143,7 +146,7 @@ Checklist de entrega:
 - [ ] Ajustes sin scroll: 4 fichas y 3 separaciones iguales.
 - [ ] Widget respeta el tema (8 fondos) incluso sin abrir la app; toggle USD/EUR.
 - [ ] Estados/caché correctos, pill de estado centrada, delta con ▲/▼ o "—".
-- [ ] Calculadora con formato venezolano y sin fallas con campos vacíos.
+- [ ] Calculadora con formato venezolano, pegado de "1.000" y sin fallas con campos vacíos.
 - [ ] `versionCode` mayor, peso del APK revisado y sin `keystore/` ni `keystore.properties` en el cambio.
 - [ ] `assembleRelease` correcto, firma `CN=Dolar BCV`, versión confirmada, una sola release con `TasaBCV-Clean.apk`.
 
